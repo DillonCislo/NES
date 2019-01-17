@@ -72,7 +72,7 @@ class PolyhedronSoupToPolyhedronMesh : public CGAL::Modifier_base<HDS> {
 /// Build the polyhedral mesh
 ///
 template <class HDS, class Scalar>
-void PolyhedronSoupToPolyhedronMesh<HDS>::operator()( HDS &target ) {
+void PolyhedronSoupToPolyhedronMesh<HDS, Scalar>::operator()( HDS &target ) {
 
 	// Postcondition: HDS is a valid polyhedral surface
 	CGAL::Polyhedron_incremental_builder_3<HDS> B( target, true );

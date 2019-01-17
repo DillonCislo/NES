@@ -92,6 +92,11 @@ class ElasticProblem {
 	public:
 
 		///
+		/// Null constructor
+		///
+		ElasticProblem() {};
+
+		///
 		/// Constructor in the case that no vertices have target locations
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
