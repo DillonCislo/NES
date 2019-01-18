@@ -14,6 +14,8 @@
 
 #include "mex.h" // for MATLAB
 
+#include <iostream>
+#include <fstream>
 #include <vector>
 #include <stdexcept>
 
@@ -61,6 +63,8 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 	VectorXd x = Eigen::Map<Eigen::VectorXd>( vertexCopy.data(), vertexCopy.size() );
 
 	EU.updateCurrentGeometry( P, x );
+
+	return;
 
 };
 

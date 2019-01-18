@@ -102,7 +102,7 @@ void PolyhedronSoupToPolyhedronMesh<HDS, Scalar>::operator()( HDS &target ) {
 			std::cerr << " " << std::endl;
 			std::cerr << "PolyhedronBuildFromArray<HDS>::" << std::endl;
 			std::cerr << "buildFromEigenArray: input error: facet" << i
-				<< " have less than 3 vertices." << std::endl;
+				<< " has less than 3 vertices." << std::endl;
 	
 			B.rollback();
 			return;

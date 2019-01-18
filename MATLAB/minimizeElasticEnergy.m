@@ -69,7 +69,7 @@ v1 = edgeList(:,1);
 v2 = edgeList(:,2);
 
 % Default curvature is plate-like (i.e., flat) ----------------------------
-tarTheta = zeros( size( v1 ) );
+tarTheta = zeros( size( tarLength ) );
 
 % Check the size of the target length list
 sizee = size( v1 );
@@ -102,9 +102,6 @@ for i = 1:length(varargin)
         anyFixed = true;
         alpha = 1;
     end    
-    if ~isempty(regexp(varargin{i}, '^[Aa]lpha', 'match'))
-        alpha = varargin{i+1};
-    end
     if ~isempty(regexp(varargin{i}, '^[Tt]arget[Vv]ertices', 'match'))
         target_ID = varargin{i+1};
         anyFixed = true;
@@ -128,7 +125,7 @@ for i = 1:length(varargin)
     end
     
     % Minimization parameters ---------------------------------------------
-    if ~isempty(regexp(varargin{i}, '^[Mm]','match'))
+    if ~isempty(regexp(varargin{i}, '^[Mm][Hh]istory[Ss]ize','match'))
         param.m = varargin{i+1};
     end
     if ~isempty(regexp(varargin{i}, '^[Ee]psilon','match'))
@@ -213,7 +210,7 @@ end
 % Construct fixed boundary condition if necessary
 if ( fixBoundary )
     
-    bdyID = unique( diskTri.freeBoundary, 'stable' );
+    bdyID = unique( tr.freeBoundary, 'stable' );
     
     target_ID = [ target_ID; bdyID ];
     targetLocations = [ targetLocations; vertex( bdyID, : ) ];
@@ -233,7 +230,7 @@ else
     
     % Prepare non-empty array for C++ functionality check
     target_ID = -1;
-    targetLocations = zero(1,3);
+    targetLocations = zeros(1,3);
     
 end
 
@@ -242,17 +239,17 @@ end
 face = face-1; v1 = v1-1; v2 = v2-1;
 
 if (anyFixed) 
-    target_ID = target_ID - 1;
+    target_ID = target_ID-1;
 end
 
 % -------------------------------------------------------------------------
 % Run Elastic Minimization!
 %--------------------------------------------------------------------------
 
-newVertex = minimize_elastic_energy( int(face), double(vertex), ...
-    int(v1), int(v2), double(tarLength), double(tarTheta), ...
+newVertex = minimize_elastic_energy( int32(face), double(vertex), ...
+    int32(v1), int32(v2), double(tarLength), double(tarTheta), ...
     param, double(h), double(nu), ...
-    double(alpha), int(target_ID), double(targetLocations) );
+    double(alpha), int32(target_ID), double(targetLocations) );
 
 
 end
