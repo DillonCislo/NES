@@ -69,6 +69,9 @@ struct ElasticVertex : public CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Poi
 		//! The target vertex coordinates
 		Vector3d  m_tarV = Vector3d::Zero();
 
+		//! Will be true if this vertex has a user supplied target location
+		bool m_targetCheck = false;
+
 	public:
 
 		//! Set the vertex coordinates
@@ -77,11 +80,17 @@ struct ElasticVertex : public CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Poi
 		//! Set the target vertex coordinates
 		void setTarV( const Vector3d &tarV ) { this->m_tarV = tarV; };
 
+		//! Set the target check
+		void setTarget( bool isTarget ) { this->m_targetCheck = isTarget; };
+
 		//! Get the vertex coordinates
 		Vector3d v() { return this->m_v; };
 
 		//! Get the target vertex coordinates
 		Vector3d tarV() { return this->m_tarV; };
+
+		//! Get the target check
+		bool isTarget() { return this->m_targetCheck; };
 
 };
 

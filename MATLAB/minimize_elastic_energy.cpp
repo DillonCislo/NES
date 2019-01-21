@@ -41,7 +41,9 @@ typedef Eigen::MatrixXi 		MatrixXi;
 // Prepare a polyhedral mesh object for the elastic minimization procedure
 void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXi &v1_ID, const VectorXi &v2_ID,
-		const VectorXd &targetLengths, const VectorXd &targetAngles ) {
+		const VectorXd &targetLengths, const VectorXd &targetAngles,
+	        const VectorXi &target_ID, const MatrixXd &targetLocations ) {
+
 
 	// Read in basic mesh topology and vertex locations
 	PolyhedronSoupToPolyhedronMesh<HalfedgeDS, double> inPoly( vertex, faces );
@@ -53,8 +55,10 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 
 	// Update target geometry
 	ElasticUpdater EU;
+	std::vector<Vertex_handle> tV;
 
 	EU.assignVertexID( P );
+	tV = EU.assignTargetVertex( P, target_ID, targetLocations );
 	EU.assignMajorEdges( P );
 	EU.updateTargetGeometry( P, v1_ID, v2_ID, targetLengths, targetAngles );
 
@@ -77,7 +81,9 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXi &target_ID, const MatrixXd &targetLocations ) {
 
 	Polyhedron P;
-	preparePolyhedron( P, faces, vertex, v1_ID, v2_ID, targetLengths, targetAngles );
+	preparePolyhedron( P, faces, vertex,
+			v1_ID, v2_ID, targetLengths, targetAngles,
+			target_ID, targetLocations );
 
 	// Initialize the problem structure
 	ElasticProblem f;
@@ -87,31 +93,7 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 
 	} else {
 
-		// Fill vector of target vertex handles
-		std::vector<Vertex_handle> targetVertices;
-		targetVertices.reserve( target_ID.size() );
-
-		for( int k = 0; k < target_ID.size(); k++ ) {
-
-			bool isTarget = false;
-
-			Vertex_iterator v = P.vertices_begin();
-			do {
-				if ( target_ID[k] == v->id() ) {
-
-					targetVertices.push_back( v );
-					isTarget = true;
-
-				}
-
-				v++;
-
-			} while ( ( v != P.vertices_end() ) && (!isTarget) );
-
-		}
-
-		f = ElasticProblem( P, h, nu, alpha, targetVertices, targetLocations );
-
+		f = ElasticProblem( P, h, nu, alpha, target_ID, targetLocations );
 	}
 
 	// Initial guess

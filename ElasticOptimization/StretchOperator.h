@@ -42,6 +42,7 @@ class StretchOperator {
 		typedef typename Polyhedron::Halfedge_around_vertex_circulator 	HV_circulator;
 		typedef typename Polyhedron::Halfedge_around_facet_circulator 	HF_circulator;
 
+		typedef typename Eigen::RowVector3d 			RowVector3d;
 		typedef typename Eigen::Vector3d 			Vector3d;
 		typedef typename Eigen::VectorXd 			VectorXd;
 		typedef typename Eigen::VectorXi 			VectorXi;
@@ -311,18 +312,26 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 
 		// Re-format face quantities for energy calculation
 		Vector3d str;
-		std::vector<RowGradS> gradL2;
-		gradL2.reserve( 3 );
-
 		Halfedge_handle he = f->halfedge();
 		for( int k = 0; k < 3; k++ ) {
 
 			str(k) = he->edgeStrain();
-			gradL2.push_back( 2.0 * he->edgeVector().transpose() * m_gradE[k] );
-
 			he = he->next();
 
 		}
+
+		// Assemble edge-length gradients
+		RowVector3d ei = 2.0 * f->halfedge()->edgeVector().transpose();
+		RowVector3d ej = 2.0 * f->halfedge()->next()->edgeVector().transpose();
+		RowVector3d ek = 2.0 * f->halfedge()->prev()->edgeVector().transpose();
+
+		RowGradS gradLI2, gradLJ2, gradLK2;
+
+		gradLI2 << RowVector3d::Zero(), -ei, ei;
+		gradLJ2 << ej, RowVector3d::Zero(), -ej;
+		gradLK2 << -ek, ek, RowVector3d::Zero();
+
+		std::vector<RowGradS> gradL2{ gradLI2, gradLJ2, gradLK2 };
 
 		// Construct the traces and trace gradients
 		double trE = 0.0;
@@ -392,18 +401,26 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix 
 
 		// Re-format face quantities for energy calculation
 		Vector3d str;
-		std::vector<RowGradS> gradL2;
-		gradL2.reserve( 3 );
-
 		Halfedge_handle he = f->halfedge();
 		for( int k = 0; k < 3; k++ ) {
 
 			str(k) = he->edgeStrain();
-			gradL2.push_back( 2.0 * he->edgeVector().transpose() * m_gradE[k] );
-
 			he = he->next();
 
 		}
+
+		// Assemble edge-length gradients
+		RowVector3d ei = 2.0 * f->halfedge()->edgeVector().transpose();
+		RowVector3d ej = 2.0 * f->halfedge()->next()->edgeVector().transpose();
+		RowVector3d ek = 2.0 * f->halfedge()->prev()->edgeVector().transpose();
+
+		RowGradS gradLI2, gradLJ2, gradLK2;
+
+		gradLI2 << RowVector3d::Zero(), -ei, ei;
+		gradLJ2 << ej, RowVector3d::Zero(), -ej;
+		gradLK2 << -ek, ek, RowVector3d::Zero();
+
+		std::vector<RowGradS> gradL2{ gradLI2, gradLJ2, gradLK2 };
 
 		// Construct the traces, trace gradients, and trace Hessians
 		double trE = 0.0;

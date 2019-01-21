@@ -192,13 +192,13 @@ end
 % Process target vertex correspondence input ------------------------------
 
 % Check that the value of alpha is consistent
-if ( anyFixed && ( alpha == 0 ) )
-    error( 'Alpha cannot equal zero if target vertices are supplied!' );
+if ( anyFixed && ( alpha <= 0 ) )
+    error( 'Alpha must be positive if target vertices are supplied!' );
 end
 
-% Check that the target ID list and the target location list are consistent
+% Check that the target ID list and the target location li st are consistent
 if ( size( target_ID, 1 ) ~= size( targetLocations, 1 ) )
-    error( [ 'Size of target vertex ID list does not',
+    error( [ 'Size of target vertex ID list does not', ...
         'match the size of the target location list' ] );
 end
 

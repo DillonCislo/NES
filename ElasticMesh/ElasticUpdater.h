@@ -196,6 +196,8 @@ ElasticUpdater::assignTargetVertex( Polyhedron &P,
 
 	// Assign target vertices and target locations
 	std::vector<Vertex_handle> targetVertices;
+	targetVertices.reserve( tarV_ID.size() );
+
 	Vertex_iterator v;
 	for( int i = 0; i < tarV_ID.size(); i++ ) {
 
@@ -206,6 +208,7 @@ ElasticUpdater::assignTargetVertex( Polyhedron &P,
 			if( v->id() == tarV_ID(i) ) {
 
 				v->setTarV( tarV.row(i).transpose() );
+				v->setTarget( true );
 				targetVertices.push_back( v );
 				vtxSet = true;
 
@@ -435,12 +438,11 @@ void ElasticUpdater::updateCurrentEdges( Polyhedron &P ) {
 
 		Vector3d n1 = e->face()->faceNormal();
 		Vector3d n2 = e->opposite()->face()->faceNormal();
-		Vector3d e0 = e->edgeUnitVector();
+		Vector3d e0Hat = e->edgeUnitVector();
 
-		double theta = std::acos( n1.transpose() * n2 );
-		theta *= (double) sgn( n1.cross(n2).dot(e0) );
+		Vector3d z = n1.cross(n2);
+		double phi = 2.0 * z.dot(e0Hat) / ( 1.0 + n1.dot(n2) );
 
-		double phi = 2.0 * std::tan( theta / 2.0 );
 		e->setPhi( phi );
 		e->opposite()->setPhi( phi );
 

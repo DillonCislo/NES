@@ -43,7 +43,9 @@ class ElasticProblem {
 		typedef typename Polyhedron::Vertex_handle 	Vertex_handle;
 		typedef typename Polyhedron::Face_handle 	Face_handle;
 		typedef typename Polyhedron::Halfedge_handle 	Halfedge_handle;
+		typedef typename Polyhedron::Vertex_iterator	Vertex_iterator;
 
+		typedef typename Eigen::VectorXi 		VectorXi;
 		typedef typename Eigen::VectorXd 		VectorXd;
 		typedef typename Eigen::MatrixXd 		MatrixXd;
 
@@ -60,6 +62,11 @@ class ElasticProblem {
 		/// A boolean determining whether any vertices are given target locations
 		///
 		bool anyFixed;
+
+		///
+		/// A vector of pointers to the target vertices
+		///
+		std::vector<Vertex_handle> m_targetVertices;
 
 		///
 		/// The stretch operator used to calculate the stretching energy
@@ -101,7 +108,7 @@ class ElasticProblem {
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
 		///
-		ElasticProblem( Polyhedron P, double h, double nu ) : m_P( P ) {
+		ElasticProblem( Polyhedron &P, double h, double nu ) : m_P( P ) {
 
 				this->anyFixed = false;
 
@@ -115,19 +122,9 @@ class ElasticProblem {
 		/// for a subset of the mesh vertices.  Note that we expect the polyhedron
 		/// object to have a fully updated target geometry prior to the construction
 		/// of the problem structure
-		ElasticProblem( Polyhedron P, double h, double nu, double alpha,
-				std::vector<Vertex_handle> fV, MatrixXd tP ) : m_P( P ) {
-
-				this->anyFixed = true;
-
-				this->m_SO = StretchOperator( nu );
-				this->m_BO = BendOperator( h, nu );
-
-				int Nv = P.size_of_vertices();
-				this->m_FPO = FixedPointOperator( Nv, alpha, fV, tP );
-
-		};
-
+		ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
+				const VectorXi &target_ID,
+			       	const MatrixXd &targetLocations );
 		///
 		/// Evaluate the energy
 		///
@@ -144,6 +141,49 @@ class ElasticProblem {
 		///
 		double operator()( const VectorXd &x, VectorXd &grad, SparseMatrix &hess );
 
+
+};
+
+///
+/// Constructor in the case that there are user supplied target locations for a subset of
+/// the mesh vertices.  Note that we expect the polyhedron object to have a fully updated
+/// target geometry prior to the construction of the problem structure
+///
+ElasticProblem::ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
+	       const VectorXi &target_ID, const MatrixXd &targetLocations ) : m_P( P ) {
+
+	this->anyFixed = true;
+
+	this->m_SO = StretchOperator( nu );
+	this->m_BO = BendOperator( h, nu );
+
+	// Construct vector of target vertex handles
+	std::vector<Vertex_handle> targetVertices;
+	targetVertices.reserve( target_ID.size() );
+
+	for( int k = 0; k < target_ID.size(); k++ ) {
+
+		bool isTarget = false;
+
+		Vertex_iterator v = this->m_P.vertices_begin();
+		do { 
+			if ( target_ID(k) == v->id() ) {
+
+				targetVertices.push_back( v );
+				isTarget = true;
+
+			}
+
+			v++;
+
+		} while( ( v != this->m_P.vertices_end() ) && (!isTarget) );
+
+	}
+
+	this->m_targetVertices = targetVertices;
+
+	int Nv = this->m_P.size_of_vertices();
+	this->m_FPO = FixedPointOperator( Nv, alpha, targetVertices, targetLocations );
 
 };
 
@@ -191,8 +231,12 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 	// Calculate stretching energy
 	double Estretch = this->m_SO( this->m_P, grad );
 
+	// std::cout << "Sgrad = " << grad.norm();
+
 	// Calculate bending energy
 	double Ebend = this->m_BO( this->m_P, grad );
+
+	// std::cout << " + Bgrad = " << grad.norm() << std::endl;
 
 	double Etotal = Estretch + Ebend;
 
@@ -202,7 +246,6 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 		Etotal += this->m_FPO( this->m_P, grad );
 
 	}
-
 
 	return Etotal;
 

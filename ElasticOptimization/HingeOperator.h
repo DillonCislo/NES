@@ -100,6 +100,7 @@ class HingeOperator {
 
 };
 
+/* BASIC METHOD
 ///
 /// Evaluate the hinge function and its gradient
 /// For use with gradient based methods ( FIRE, L-BFGS, ... )
@@ -159,6 +160,190 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 	}
 
 };
+*/
+
+///
+/// Evaluate the hinge function and its gradient
+/// For use with gradient based methods ( FIRE, L-BFGS, ... )
+///
+void HingeOperator::constructGradient( Polyhedron &P ) {
+
+	Edge_iterator e0;
+	for( e0 = P.edges_begin(); e0 != P.edges_end(); e0++ ) {
+
+		Halfedge_handle e00 = e0->opposite();
+
+		// Skip incomplete boundary hinges
+		if ( e0->is_border() || e00->is_border() ) continue;
+
+		// /////////////////////////////////////////////////////////////////////////////
+		// Construct geometric hinge quantities
+		// /////////////////////////////////////////////////////////////////////////////
+		
+		Vector3d n1 = e0->face()->faceNormal();
+		Vector3d n2 = e00->face()->faceNormal();
+
+		double A1 = e0->face()->faceArea();
+		double A2 = e00->face()->faceArea();
+
+		Halfedge_handle e1 = e0->prev()->opposite();
+		Halfedge_handle e2 = e00->next();
+		Halfedge_handle e3 = e0->next();
+		Halfedge_handle e4 = e00->prev()->opposite();
+
+		double l0 = e0->length();
+		double l1 = e1->length();
+		double l2 = e2->length();
+		double l3 = e3->length();
+		double l4 = e4->length();
+
+		double h01 = 2.0 * A1 / l0;
+		double h02 = 2.0 * A2 / l0;
+		double h1 = 2.0 * A1 / l1;
+		double h2 = 2.0 * A2 / l2;
+		double h3 = 2.0 * A1 / l3;
+		double h4 = 2.0 * A2 / l4;
+
+		double cosAlpha1 = e0->edgeUnitVector().dot( e1->edgeUnitVector() );
+		double cosAlpha2 = e0->edgeUnitVector().dot( e2->edgeUnitVector() );
+		double cosAlpha3 = e00->edgeUnitVector().dot( e3->edgeUnitVector() );
+		double cosAlpha4 = e00->edgeUnitVector().dot( e4->edgeUnitVector() );
+
+		// /////////////////////////////////////////////////////////////////////////////
+		// Gradient construction
+		// /////////////////////////////////////////////////////////////////////////////
+		
+		// Construct bend angle gradient components
+		RowVector3d gradTheta0 = cosAlpha3 * n1.transpose() / h3;
+		gradTheta0 += cosAlpha4 * n2.transpose() / h4;
+
+		RowVector3d gradTheta1 = cosAlpha1 * n1.transpose() / h1;
+		gradTheta1 += cosAlpha2 * n2.transpose() / h2;
+
+		RowVector3d gradTheta2 = -n1.transpose() / h01;
+
+		RowVector3d gradTheta3 = -n2.transpose() / h02;
+
+		// Assemble bend angle gradient
+		HingeGrad gradTheta;
+		gradTheta << gradTheta0, gradTheta1, gradTheta2, gradTheta3;
+
+		// Assemble hinge function gradient
+		double cosTheta = n1.transpose() * n2;
+		HingeGrad gradPhi = 2.0 * gradTheta / ( 1.0 + cosTheta );
+
+		e0->setGradPhi( gradPhi );
+		e00->setGradPhi( gradPhi );
+
+	}
+
+};
+
+/* MY ORIGINAL METHOD
+///
+/// Evaluate the hinge function and its gradient
+/// For use with gradient based methods ( FIRE, L-BFGS, ... )
+///
+void HingeOperator::constructGradient( Polyhedron &P ) {
+
+	Edge_iterator e0;
+	for( e0 = P.edges_begin(); e0 != P.edges_end(); e0++ ) {
+
+		Halfedge_handle e00 = e0->opposite();
+
+		// Skip incomplete boundary hinges
+		if ( e0->is_border() || e00->is_border() ) continue;
+
+		// /////////////////////////////////////////////////////////////////////////////
+		// Construct geometric hinge quantities
+		// /////////////////////////////////////////////////////////////////////////////
+		
+		// Face normals
+		Vector3d n1 = e0->face()->faceNormal();
+		Vector3d n2 = e00->face()->faceNormal();
+
+		// Face areas
+		double A1 = e0->face()->faceArea();
+		double A2 = e00->face()->faceArea();
+
+		// Hinge edge handles
+		Halfedge_handle e1 = e0->prev()->opposite();
+		Halfedge_handle e2 = e00->next();
+		Halfedge_handle e3 = e0->next();
+		Halfedge_handle e4 = e00->prev()->opposite();
+
+		// Hinge edge lengths
+		double l0 = e0->length();
+		double l1 = e1->length();
+		double l2 = e2->length();
+		double l3 = e3->length();
+		double l4 = e4->length();
+
+		// Hinge edge altitudes
+		double h01 = 2.0 * A1 / l0;
+		double h02 = 2.0 * A2 / l0;
+		double h1 = 2.0 * A1 / l1;
+		double h2 = 2.0 * A2 / l2;
+		double h3 = 2.0 * A1 / l3;
+		double h4 = 2.0 * A2 / l4;
+
+		// Re-scaled in-plane edge unit normals
+		Vector3d mh01 = e0->edgeNormal() / h01;
+		Vector3d mh02 = e00->edgeNormal() / h02;
+		Vector3d mh1 = e1->opposite()->edgeNormal() / h1;
+		Vector3d mh2 = e2->edgeNormal() / h2;
+		Vector3d mh3 = e3->edgeNormal() / h3;
+		Vector3d mh4 = e4->opposite()->edgeNormal() / h4;
+		
+		// Hinge angle constants
+		double cCosTheta = 1.0 + n1.dot(n2); // ( 1 + cosTheta )
+		double sinTheta = n1.cross(n2).dot(e0->edgeUnitVector());
+
+		// /////////////////////////////////////////////////////////////////////////////
+		// Gradient construction
+		// /////////////////////////////////////////////////////////////////////////////
+		
+		// Form inner product matrices
+		Matrix3d n1n1 = n1 * n1.transpose();
+		Matrix3d n1n2 = n1 * n2.transpose();
+		Matrix3d n2n1 = n2 * n1.transpose();
+		Matrix3d n2n2 = n2 * n2.transpose();
+
+		// Form the gradient of cosTheta
+		HingeGrad cosGrad;
+		RowVector3d cosGrad0, cosGrad1, cosGrad2, cosGrad3;
+
+		cosGrad0 << mh3.transpose() * n2n1 + mh4.transpose() * n1n2;
+		cosGrad1 << mh1.transpose() * n2n1 + mh2.transpose() * n1n2;
+		cosGrad2 << mh01.transpose() * n2n1;
+		cosGrad3 << mh02.transpose() * n1n2;
+
+		cosGrad << cosGrad0, cosGrad1, cosGrad2, cosGrad3;
+
+		// Form the gradient of sinTheta
+		HingeGrad sinGrad;
+		RowVector3d sinGrad0, sinGrad1, sinGrad2, sinGrad3;
+
+		sinGrad0 << mh3.transpose() * n1n1 + mh4.transpose() * n2n2;
+		sinGrad1 << mh1.transpose() * n1n1 + mh2.transpose() * n2n2;
+		sinGrad2 << mh01.transpose() * n1n1;
+		sinGrad3 << mh02.transpose() * n2n2;
+
+		sinGrad << sinGrad0, sinGrad1, sinGrad2, sinGrad3;
+
+		// Form the gradient of the hinge function
+		HingeGrad gradPhi;
+
+		gradPhi << 2.0 * ( cCosTheta * sinGrad - sinTheta * cosGrad );
+		gradPhi = gradPhi / ( cCosTheta * cCosTheta );
+
+		e0->setGradPhi( gradPhi );
+		e00->opposite()->setGradPhi( gradPhi );
+
+	}
+
+};
+*/
 
 ///
 /// Evaluate the hinge function, its gradient, and its Hessian matrix.
