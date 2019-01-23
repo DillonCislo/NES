@@ -35,6 +35,7 @@ class FixedPointOperator {
 
 		typedef typename Eigen::RowVector3d 			RowVector3d;
 		typedef typename Eigen::Vector3d 			Vector3d;
+		typedef typename Eigen::VectorXi 			VectorXi;
 		typedef typename Eigen::VectorXd 			VectorXd;
 		typedef typename Eigen::MatrixXd 			MatrixXd;
 
@@ -54,11 +55,6 @@ class FixedPointOperator {
 		SparseMatrix m_fixedHessian;
 
 		///
-		/// The target locations of the fixed vertices
-		///
-		MatrixXd m_targetPositions;
-
-		///
 		/// Fixed point constraint tolerance coefficient
 		/// 
 		double m_alpha;
@@ -72,8 +68,7 @@ class FixedPointOperator {
 		///
 		/// Default constructor
 		///
-		FixedPointOperator( int Nv, double alpha,
-				std::vector<Vertex_handle> &fV, const MatrixXd &tP );
+		FixedPointOperator( int Nv, double alpha, const VectorXi &target_ID );
 
 		///
 		/// An overloaded function to calculate the target vertex correspondence
@@ -101,19 +96,18 @@ class FixedPointOperator {
 ///
 /// Default constructor
 ///
-FixedPointOperator::FixedPointOperator( int Nv, double alpha,
-		std::vector<Vertex_handle> &fV, const MatrixXd &tP ) :
-	m_Nv( Nv ), m_alpha( alpha ),  m_targetPositions( tP ) {
+FixedPointOperator::FixedPointOperator( int Nv, double alpha, const VectorXi &target_ID ) :
+	m_Nv( Nv ), m_alpha( alpha ) {
 	
 	// Populate the sparse Hessian matrix
 	// Note: this matrix will remain constant between optimization iterations
 	SparseMatrix fH( 3*Nv, 3*Nv );
 
 	std::vector<Triplet> tripletList;
-	tripletList.reserve( 3 * fV.size() );
-	for( int k = 0; k < fV.size(); k++ ) {
+	tripletList.reserve( 3 * target_ID.size() );
+	for( int k = 0; k < target_ID.size(); k++ ) {
 
-		int vID = fV[k]->id();
+		int vID = target_ID(k);
 
 		tripletList.push_back( Triplet( vID, vID, 2.0 * alpha ) );
 		tripletList.push_back( Triplet( vID+Nv, vID+Nv, 2.0 * alpha ) );
@@ -125,16 +119,6 @@ FixedPointOperator::FixedPointOperator( int Nv, double alpha,
 
 	this->m_fixedHessian = fH;
 
-	std::cout << "fV Length = " << fV.size() << std::endl;
-	std::cout << "tP rows = " << this->m_targetPositions.rows() << std::endl;
-	std::cout << "tP cols = " << this->m_targetPositions.cols() << std::endl;
-
-	for( int k = 0; k < fV.size(); k++ ) {
-
-		std::cout << fV[k]->id() << std::endl;
-
-	}
-
 };
 
 ///
@@ -145,19 +129,6 @@ double FixedPointOperator::operator()( Polyhedron &P ) {
 
 	// NOTE: CURRENT GEOMETRY OF THE POLYHEDRON SHOULD BE UP TO DATE
 	double EFP = 0.0;
-
-	/*
-	for( int k = 0; k < targetVertices.size(); k++ ) {
-
-		RowVector3d x0 = this->m_targetPositions.row( k );
-		RowVector3d x = targetVertices[k]->v().transpose();
-		RowVector3d dx = x - x0;
-
-		// The single vertex contribution to the energy
-		EFP += this->m_alpha * dx.squaredNorm();
-
-	}
-	*/
 
 	Vertex_iterator v;
 	for( v = P.vertices_begin(); v != P.vertices_end(); v++ ) {
@@ -185,39 +156,6 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 	// NOTE: CURRENT GEOMETRY OF THE POLYHEDRON SHOULD BE UP TO DATE 
 	double EFP = 0.0;
 
-	/*
-	for( int k = 0; k < targetVertices.size(); k++ ) {
-		std::cout << "v" << k << "_ID = " << targetVertices[k]->id() << std::endl;
-	}
-
-	for( int k = 0; k < targetVertices.size(); k++ ) {
-
-		std::cout << "0 ";
-		int vID = targetVertices[k]->id();
-
-		std::cout <<"  vID = " << vID;
-		RowVector3d x0 = this->m_targetPositions.row( k );
-		std::cout <<" 2 ";
-		RowVector3d x = targetVertices[k]->v().transpose();
-		std::cout << " 3 " << std::endl;
-		RowVector3d dx = x - x0;
-
-		std::cout << "x = " << x << " x0 = " << x0 <<  " dx = " << dx << std::endl;
-
-		// The single vertex contribution to the energy
-		EFP += this->m_alpha * dx.squaredNorm();
-
-		// The single vertex contribution to the energy gradient
-		RowVector3d gradEFP = 2.0 * m_alpha * dx;
-
-		grad( vID ) += gradEFP(0);
-		grad( vID+m_Nv ) += gradEFP(1);
-		grad( vID+(2*m_Nv) ) += gradEFP(2);
-
-	}
-
-	*/
-
 	Vertex_iterator v;
 	for( v = P.vertices_begin(); v != P.vertices_end(); v++ ) {
 
@@ -239,8 +177,6 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 		}
 	}
 
-	std::cout << "Alpha = " << m_alpha << " EFP = " << EFP << std::endl;
-
 	return EFP;
 
 };
@@ -255,28 +191,6 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatr
 	hess += this->m_fixedHessian;
 
 	double EFP = 0.0;
-
-	/*
-	for( int k = 0; k < targetVertices.size(); k++ ) {
-
-		int vID = targetVertices[k]->id();
-
-		RowVector3d x0 = this->m_targetPositions.row( k );
-		RowVector3d x = targetVertices[k]->v().transpose();
-		RowVector3d dx = x - x0;
-
-		// The single vertex contribution to the energy
-		EFP += this->m_alpha * dx.squaredNorm();
-
-		// The single vertex contribution to the energy gradient
-		RowVector3d gradEFP = 2.0 * m_alpha * dx;
-
-		grad( vID ) += gradEFP(0);
-		grad( vID+m_Nv ) += gradEFP(1);
-		grad( vID+(2*m_Nv) ) += gradEFP(2);
-
-	}
-	*/
 
 	Vertex_iterator v;
 	for( v = P.vertices_begin(); v != P.vertices_end(); v++ ) {

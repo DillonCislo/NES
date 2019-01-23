@@ -64,11 +64,6 @@ class ElasticProblem {
 		bool anyFixed;
 
 		///
-		/// A vector of pointers to the target vertices
-		///
-		std::vector<Vertex_handle> m_targetVertices;
-
-		///
 		/// The stretch operator used to calculate the stretching energy
 		///
 		StretchOperator m_SO;
@@ -123,8 +118,8 @@ class ElasticProblem {
 		/// object to have a fully updated target geometry prior to the construction
 		/// of the problem structure
 		ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
-				const VectorXi &target_ID,
-			       	const MatrixXd &targetLocations );
+				const VectorXi &target_ID );
+
 		///
 		/// Evaluate the energy
 		///
@@ -150,40 +145,15 @@ class ElasticProblem {
 /// target geometry prior to the construction of the problem structure
 ///
 ElasticProblem::ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
-	       const VectorXi &target_ID, const MatrixXd &targetLocations ) : m_P( P ) {
+	       const VectorXi &target_ID ) : m_P( P ) {
 
 	this->anyFixed = true;
 
 	this->m_SO = StretchOperator( nu );
 	this->m_BO = BendOperator( h, nu );
 
-	// Construct vector of target vertex handles
-	std::vector<Vertex_handle> targetVertices;
-	targetVertices.reserve( target_ID.size() );
-
-	for( int k = 0; k < target_ID.size(); k++ ) {
-
-		bool isTarget = false;
-
-		Vertex_iterator v = this->m_P.vertices_begin();
-		do { 
-			if ( target_ID(k) == v->id() ) {
-
-				targetVertices.push_back( v );
-				isTarget = true;
-
-			}
-
-			v++;
-
-		} while( ( v != this->m_P.vertices_end() ) && (!isTarget) );
-
-	}
-
-	this->m_targetVertices = targetVertices;
-
 	int Nv = this->m_P.size_of_vertices();
-	this->m_FPO = FixedPointOperator( Nv, alpha, targetVertices, targetLocations );
+	this->m_FPO = FixedPointOperator( Nv, alpha, target_ID );
 
 };
 
