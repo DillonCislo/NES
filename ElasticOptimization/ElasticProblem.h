@@ -217,6 +217,8 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 
 	}
 
+	
+
 	return Etotal;
 
 };

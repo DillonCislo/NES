@@ -138,10 +138,12 @@ double FixedPointOperator::operator()( Polyhedron &P ) {
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += this->m_alpha * dx.squaredNorm();
+			EFP += dx.squaredNorm();
 
 		}
 	}
+
+	EFP *= this->m_alpha;
 
 	return EFP;
 
@@ -165,7 +167,7 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += this->m_alpha * dx.squaredNorm();
+			EFP += dx.squaredNorm();
 
 			// The single vertex contribution to the energy gradient
 			Vector3d gradEFP = 2.0 * this->m_alpha * dx;
@@ -176,6 +178,8 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 
 		}
 	}
+
+	EFP *= this->m_alpha;
 
 	return EFP;
 
@@ -201,7 +205,7 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatr
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += this->m_alpha * dx.squaredNorm();
+			EFP += dx.squaredNorm();
 
 			// The single vertex contribution to the energy gradient
 			Vector3d gradEFP = 2.0 * this->m_alpha * dx;
@@ -212,6 +216,8 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatr
 
 		}
 	}
+
+	EFP *= this->m_alpha;
 
 	return EFP;
 
