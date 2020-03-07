@@ -33,3 +33,6 @@
 
 # Editing
 *.swp
+
+# MATLAB
+*.mexa64
