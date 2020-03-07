@@ -40,9 +40,9 @@ typedef Eigen::MatrixXi 		MatrixXi;
 
 // Prepare a polyhedral mesh object for the elastic minimization procedure
 void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &vertex,
-		const VectorXi &v1_ID, const VectorXi &v2_ID,
+    const VectorXi &v1_ID, const VectorXi &v2_ID,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
-	        double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations ) {
+    double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations ) {
 
 
 	// Read in basic mesh topology and vertex locations
@@ -82,7 +82,8 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
 		const LBFGSpp::LBFGSParam<double> param,
 		double h, double nu, double alpha,
-		const VectorXi &target_ID, const MatrixXd &targetLocations ) {
+		const VectorXi &target_ID, const MatrixXd &targetLocations,
+    double beta, double targetVolume ) {
 
 	Polyhedron P;
 	preparePolyhedron( P, faces, vertex,
@@ -90,15 +91,7 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 			alpha, target_ID, targetLocations );
 
 	// Initialize the problem structure
-	ElasticProblem f;
-	if ( alpha == 0.0 ) {
-
-		f = ElasticProblem( P, h, nu );
-
-	} else {
-
-		f = ElasticProblem( P, h, nu, alpha, target_ID );
-	}
+	ElasticProblem f(P, h, nu, beta, targetVolume, alpha, target_ID );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;
@@ -127,48 +120,50 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	
 	// VARIABLE DECLARATIONS ---------------------------------------------------------------
 	
-	int *m_faces; 			// The face connectivity list
+	int *m_faces; 			        // The face connectivity list
 	MatrixXi faces;
 
-	double *m_vertex; 		// The initial vertex positions
+	double *m_vertex; 		      // The initial vertex positions
 	MatrixXd vertex;
 
-	double *m_targetLengths; 	// The list of target edge lengths
+	double *m_targetLengths; 	  // The list of target edge lengths
 	VectorXd targetLengths;
 
-	double *m_targetAngles; 	// The list of target bend angles
+	double *m_targetAngles; 	  // The list of target bend angles
 	VectorXd targetAngles;
 	
-	int *m_v1_ID;	 		// The start vertex ID of each edge
+	int *m_v1_ID;	 		          // The start vertex ID of each edge
 	VectorXi v1_ID;
 
-	int *m_v2_ID; 			// The end vertex ID of each edge
+	int *m_v2_ID; 			        // The end vertex ID of each edge
 	VectorXi v2_ID;
 
-	int *m_target_ID; 		// The vertex IDs of those vertices with a target
-	VectorXi target_ID;		// location
+	int *m_target_ID; 		      // The vertex IDs of those vertices with a target
+	VectorXi target_ID;		      // location
 
 	double *m_targetLocations;	// The target locations of those vertices
 	MatrixXd targetLocations;
 
-	double h; 			// The thickness of the elastic sheet
-	double nu; 			// Poisson's ratio
-	double alpha; 			// The coefficient of target vertex correspondence
+	double h; 			      // The thickness of the elastic sheet
+	double nu; 			      // Poisson's ratio
+	double alpha; 	      // The coefficient of target vertex correspondence
+  double beta;          // The coefficient of the fixed folume energy
+  double targetVolume;  // The target volume for the fixed volume energy
 
 	// L-BFGS parameter objects
 	LBFGSpp::LBFGSParam<double> param;
 
 	int Nf = 0; 	// Number of faces
 	int Nv = 0; 	// Number of vertices
-	int Ne = 0;	// Number of edges
+	int Ne = 0;	  // Number of edges
 	int Nt = 0; 	// Number of target vertices
 
 	// EXTRACT INPUT PARAMETERS ------------------------------------------------------------
 
 	// Check for proper number of arguments
-	if (nrhs != 12 ) {
+	if (nrhs != 14 ) {
 		mexErrMsgIdAndTxt("MATLAB:minimize_elastic_energy:nargin",
-				"MINIMIZE_ELASTIC_ENERGY requires twelve input arguments.");
+				"MINIMIZE_ELASTIC_ENERGY requires fourteen input arguments.");
 	} else if ( nlhs != 1 ) {
 		mexErrMsgIdAndTxt("MATLAB:minimize_elastic_energy:nargout",
 				"MINIMIZE_ELASTIC_ENERGY requires one output argument.");
@@ -312,6 +307,10 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	m_targetLocations = mxGetPr( prhs[11] );
 	targetLocations = Eigen::Map<MatrixXd>( m_targetLocations, Nt, 3 );
 
+  // GET FIXED VOLUME PARAMETERS ----------------------------------------------------------
+  beta = *mxGetPr( prhs[12] );
+  targetVolume = *mxGetPr( prhs[13] );
+
 	// -------------------------------------------------------------------------------------
 	// RUN MINIMIZATION
 	// -------------------------------------------------------------------------------------
@@ -319,7 +318,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	VectorXd x = minimizeElasticEnergy( faces, vertex,
 			v1_ID, v2_ID, targetLengths, targetAngles,
 			param, h, nu,
-			alpha, target_ID, targetLocations );
+			alpha, target_ID, targetLocations,
+      beta, targetVolume );
 
 	// -------------------------------------------------------------------------------------
 	// OUTPUT PROCESSING
@@ -330,4 +330,4 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
 	return;
 
-}
+};

@@ -27,6 +27,7 @@
 #include "HingeOperator.h"
 #include "BendOperator.h"
 #include "FixedPointOperator.h"
+#include "FixedVolumeOperator.h"
 #include "../ElasticMesh/ElasticUpdater.h"
 
 ///
@@ -63,6 +64,12 @@ class ElasticProblem {
 		///
 		bool anyFixed;
 
+    ///
+    /// A boolean determining whether the enclosed volume of the elastic body
+    /// is fixed
+    ///
+    bool fixedVolume;
+
 		///
 		/// The stretch operator used to calculate the stretching energy
 		///
@@ -84,6 +91,11 @@ class ElasticProblem {
 		///
 		FixedPointOperator m_FPO;
 
+    ///
+    /// The fixed volume operator used to calculate the fixed volume energy
+    ///
+    FixedVolumeOperator m_FVO;
+
 		///
 		/// The elastic updater used to update the polyhedron's physical geometry
 		/// between optimization iterations
@@ -99,32 +111,50 @@ class ElasticProblem {
 		ElasticProblem() {};
 
 		///
-		/// Constructor in the case that no vertices have target locations
+		/// Basic constructor.
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
 		///
-		ElasticProblem( Polyhedron &P, double h, double nu ) : m_P( P ) {
+		ElasticProblem( Polyhedron &P, double h, double nu,
+        double beta, double targetVolume,
+        double alpha, const VectorXi &target_ID ) : m_P( P ) {
 
-				this->anyFixed = false;
+      // Create elastic energy operators
+			this->m_SO = StretchOperator( nu );
+			this->m_BO = BendOperator( h, nu );
 
-				this->m_SO = StretchOperator( nu );
-				this->m_BO = BendOperator( h, nu );
+      // Fixed point handling
+      if ( alpha > 0.0 ) {
+
+        this->anyFixed = true;
+        int Nv = this->m_P.size_of_vertices();
+        this->m_FPO = FixedPointOperator( Nv, alpha, target_ID );
+
+      } else {
+
+        this->anyFixed = false;
+
+      }
+
+      // Fixed volume handling
+      if ( beta > 0.0 ) {
+
+        this->fixedVolume = true;
+        this->m_FVO = FixedVolumeOperator( targetVolume, beta );
+
+      } else {
+
+        this->fixedVolume = false;
+
+      }
+
 
 		};
-
-		///
-		/// Constructor in the case that there are user supplied target locations
-		/// for a subset of the mesh vertices.  Note that we expect the polyhedron
-		/// object to have a fully updated target geometry prior to the construction
-		/// of the problem structure
-		ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
-				const VectorXi &target_ID );
 
 		///
 		/// Evaluate the energy
 		///
 		double operator()( const VectorXd &x );
-		
 
 		///
 		/// Evaulate the energy and the energy gradient
@@ -136,24 +166,6 @@ class ElasticProblem {
 		///
 		double operator()( const VectorXd &x, VectorXd &grad, SparseMatrix &hess );
 
-
-};
-
-///
-/// Constructor in the case that there are user supplied target locations for a subset of
-/// the mesh vertices.  Note that we expect the polyhedron object to have a fully updated
-/// target geometry prior to the construction of the problem structure
-///
-ElasticProblem::ElasticProblem( Polyhedron &P, double h, double nu, double alpha,
-	       const VectorXi &target_ID ) : m_P( P ) {
-
-	this->anyFixed = true;
-
-	this->m_SO = StretchOperator( nu );
-	this->m_BO = BendOperator( h, nu );
-
-	int Nv = this->m_P.size_of_vertices();
-	this->m_FPO = FixedPointOperator( Nv, alpha, target_ID );
 
 };
 
@@ -174,11 +186,10 @@ double ElasticProblem::operator()( const VectorXd &x ) {
 	double Etotal = Estretch + Ebend;
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
-	if ( this->anyFixed ) {
+	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P ); }
 
-		Etotal += this->m_FPO( this->m_P );
-
-	}
+  // OPTIONAL: Calculate the fixed volume energy
+  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P ); }
 
 	return Etotal;
 
@@ -201,23 +212,16 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 	// Calculate stretching energy
 	double Estretch = this->m_SO( this->m_P, grad );
 
-	// std::cout << "Sgrad = " << grad.norm();
-
 	// Calculate bending energy
 	double Ebend = this->m_BO( this->m_P, grad );
-
-	// std::cout << " + Bgrad = " << grad.norm() << std::endl;
 
 	double Etotal = Estretch + Ebend;
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
-	if ( this->anyFixed ) {
+	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad ); }
 
-		Etotal += this->m_FPO( this->m_P, grad );
-
-	}
-
-	
+  // OPTIONAL: Calculate the fixed volume energy
+  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P, grad ); }
 
 	return Etotal;
 
@@ -236,7 +240,7 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad, SparseMatr
 
 	// Reset the global gradient vector
 	grad = VectorXd::Zero( grad.size() );
-	
+
 	// Create stand-in Hessian matrix
 	SparseMatrix spHess( grad.size(), grad.size() );
 
@@ -249,11 +253,10 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad, SparseMatr
 	double Etotal = Estretch + Ebend;
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
-	if ( this->anyFixed ) {
+	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad, spHess ); }
 
-		Etotal += this->m_FPO( this->m_P, grad, spHess );
-
-	}
+  // OPTIONAL: Calculate the fixed volume energy
+  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P, grad, spHess ); }
 
 	// Set the global Hessian matrix from stand-in
 	hess = spHess;

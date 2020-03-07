@@ -48,6 +48,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 		//! The unit normal vector of the face
 		Vector3d m_faceNormal = Vector3d::Zero();
 
+    //! The double area weighted normal vector of the face
+    Vector3d m_faceAreaWeightedNormal = Vector3d::Zero();
+
 		//! The stretching trace constants
 		Vector3d m_C = Vector3d::Zero();
 
@@ -113,6 +116,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 		//! Get face normal
 		Vector3d faceNormal() { return this->m_faceNormal; };
 
+    //! Get double area weighted face normal
+    Vector3d faceAreaWeightedNormal() { return this->m_faceAreaWeightedNormal; };
+
 		//! Get target face area
 		double tarFaceArea() { return this->m_tarFaceArea; };
 
@@ -146,6 +152,7 @@ void ElasticFace<Refs>::calculateFaceAreaAndNormal() {
 
 	Vector3d fN = v1.cross(v2);
 
+  this->m_faceAreaWeightedNormal = fN;
 	this->m_faceArea =  fN.norm() / 2.0;
 	this->m_faceNormal = fN / fN.norm();
 

@@ -211,7 +211,7 @@ end
 
 % Process target volume correspondence input ------------------------------
 
-if fixVolume
+if fixedVolume
     
     % Check that the value of beta is valid
     assert( beta > 0, ...
@@ -230,32 +230,7 @@ if fixVolume
         COM = mean(COM, 3);
         
         % The area weighted face normal vectors
-        ej = vertex(face(:,1), :) - vertex(face(:,3), :);
-        ek = vertex(face(:,2), :) - vertex(face(:,1), :);
-        n = cross(ej, ek, 2);
-        
-        targetVolume = sum( dot(COM, n, 2) ) ./ 6;
-        
-        if (targetVolume < 0)
-            targetVolume = -targetVolume;
-            face = face(:, [2 1 3]);
-        elseif (targetVolume == 0)
-            error('Invalid user supplied mesh');
-        end
-        
-    else
-        
-        % Validate user supplied target volume
-        assert( targetVolume > 0, 'Target volume must be positive' );
-        
-    end
-    
-else
-    
-    % Prepare non-empty variables for C++ functionality check
-    targetVolume = -1;
-    
-end
+        ej = vertex(face(
 
 
 % Process target vertex correspondence input ------------------------------
@@ -318,8 +293,7 @@ end
 newVertex = minimize_elastic_energy( int32(face), double(vertex), ...
     int32(v1), int32(v2), double(tarLength), double(tarTheta), ...
     param, double(h), double(nu), ...
-    double(alpha), int32(target_ID), double(targetLocations), ...
-    double(beta), double(targetVolume) );
+    double(alpha), int32(target_ID), double(targetLocations) );
 
 
 end
