@@ -1,9 +1,198 @@
-function [newVertex] = minimizeElasticEnergy(face, vertex, tarLength, ...
+function newVertex = minimizeElasticEnergy(face, vertex, tarLength, ...
     varargin )
 %MINIMIZEELASTICENERGY this function minimizes the elastic energy of a
 %non-Euclidean shell with a given initial configuration and a specified
-%intrinsic geometry
-%   Detailed explanation goes here
+%intrinsic geometry. This is the primary MATLAB interface for the
+%(N)on-(E)uclidean (S)hell (S)imulator (NES).
+%
+%   INPUT PARAMETERS:
+%
+%       - face:         #Fx3 face connectivity list
+%
+%       - vertex:       #Vx3 3D vertex coordinate list
+%
+%       - tarLength:    #Ex1 list of target edge lengths
+%
+%   OPTIONAL INPUT PARAMETERS: (Name, Value)-Pairs
+%
+%       - ('TargetAngles', tarTheta = zeros(size(tarLength))):
+%           #Ex1 list of target edge hinge angles (i.e. pi minus the angle
+%           between the normal vectors of adjacent faces). Undefined for
+%           boundary edges (but should be set to zero). Default behavior is
+%           that of a non-Euclidean plate
+%
+%       - ('Thickness', h = 0.01):
+%           The thickness of the elastic sheet in the same units as the
+%           edge lengths
+%
+%       - ('Poisson', nu = 0.5):
+%           The Poisson ratio of the elastic sheet.
+%
+%       - ('Alpha', alpha = 0):
+%           The scalar coefficient of the fixed point energy. Set to zero
+%           if no vertices are pinned to target locations
+%
+%       - ('TargetVertices', target_ID = []):
+%           The vertex IDs of any vertices that are pinned to target
+%           locations
+%
+%       - ('TargetLocations', targetLocations = []):
+%           The 3D target locations of the fixed vertices. Does not have to
+%           be equal to the initial locations of the vertices
+%
+%       - ('FixBoundary'):
+%           If this option is flagged, all boundary vertices of the input
+%           mesh will be fixed to their initial locations.
+%           (Default alpha = 1)
+%
+%       - ('Beta', beta = 0):
+%           The scalar coefficient of the fixed volume energy. Set to zero
+%           if no target volume is desired.
+%
+%       - ('TargetVolume', targetVolume = []):
+%           The target volume enclosed by the elastic body
+%
+%       - ('FixVolume'):
+%           If this option is flagged, the volume is fixed to the initial
+%           volume of the elastic body (Default beta = 1)
+%
+%       - ('PhantomFaces', phantomFaces = []):
+%           An alternative (#F'x3) face connectivity list that fills any
+%           holes in the surface, but leaves the vertex number and
+%           locations unchanged. This allows the user to set a target
+%           volume for surfaces with boundaries.
+%
+%       - ('Mu', mu = 0):
+%           The inverse scalar coefficient of the growth restriction
+%           energy. Set to zero if growth is not restricted in any way
+%
+%       - ('GrowthRestrictionField', restrictVector = []):
+%           A (#Fx3) set of tangent unit vectors to the surface defined on
+%           mesh faces. If supplied, edge vectors in the face will be
+%           constrained to not exceed a maximum projected length along the
+%           restriction vector.
+%
+%       - ('RestrictedLengths', restrictLengths = []):
+%           A (#Fx3) set of maximum projected edge lengths along the growth
+%           restriction vector for each edge in a given face
+%
+%       - ('MHistorySize', m = 20):
+%           An L-BFGS parameter. The number of corrections used to
+%           approximate the inverse Hessian matrix. The L-BFGS routine
+%           stores the computation results of the previous m iterations to
+%           approximate the inverse Hessian matrix of the current
+%           iteration. This parameter controls the size of the limited
+%           memories (corrections). Values less than 3 are not recommended.
+%           Large values can result in excessive computing time
+%
+%       - ('Epsilon', epsilon = 1e-5):
+%           An L-BFGS parameter. Absolute tolerance for the gradient norm
+%           convergence test. A minimization terminates when the L2 norm of
+%           the gradient ||g|| < max(epsilon, epsilon_rel * ||x||), where x
+%           is the vector of independent variables
+%
+%       - ('EpsilonRel', epsilon_rel = 1e-7):
+%           An L-BFGS parameter. Relative tolerance for the gradient norm
+%           convergence test. A minimization terminates when the L2 norm of
+%           the gradient ||g|| < max(epsilon, epsilon_rel * ||x||), where x
+%           is the vector of independent variables
+%
+%       - ('Past', past = 0):
+%           An L-BFGS parameter. Distance for delta-based convergence test.
+%           This parameter determines the number of iterations d over which
+%           to compute the rate of decrease of the objective function
+%           f_{k-d}(x)-f_k(x), where k is the current iteration. If the
+%           value of this parameters is zero, the delta-based convergence
+%           criterion is ignored
+%
+%       - ('Delta', delta = 0):
+%           An L-BFGS parameter. Threshold for delta-based convergence
+%           test. A minimization terminates when
+%           |f_{k-d}(x)-f_k(x)| < delta * max(1, |f_k(x)|, |f_{k-d}(x)|)
+%           where f_k(x) is the current function value and f_{k-d}(x) is
+%           the function value d iterations ago
+%
+%       - ('MaxIterations', max_iterations = 10000):
+%           An L-BFGS parameter. The maximum number of allowed iterations.
+%           A mimimization terminates when the iteration count exceeds this
+%           number. Setting this parameter to zero continues a minimization
+%           procedure until convergence or an error
+%
+%       - ('MaxLinesearch', max_linesearch = 20):
+%           An L-BFGS parameter. The maximum number of trials for the line
+%           search. The parameter controls the number of function and
+%           gradient evaluations per iteration of the line search routine
+%
+%       - ('MinStep', min_step = 1e-20):
+%           An L-BFGS parameter. The minimum step length allowed in the
+%           line search. Usually this value does not need to be modified
+%
+%       - ('MaxStep', max_step = 1e20):
+%           An L-BFGS parameter. The maximum step length allowd in the line
+%           search. Usually this value does not need to be modified
+%
+%       - ('FTol', ftol = 1e-4):
+%           An L-BFGS parameter. A parameter to control the accuracy of the
+%           line search routin. This parameter should be greater than zero
+%           and smaller than 0.5. Usually this value does not need to be
+%           modified
+%
+%       - ('WolfeCoeff', wolfe = 0.9):
+%           An L-BFGS parameter. The coefficient for the Wolfe condition.
+%           This parameter is only valid when the line search algorithm is
+%           used with the Wolfe (or strong Wolfe) termination conditions.
+%           This parameter should be greater than the 'ftol' parameter and
+%           smaller than 1.0. Usually this value does not need to be
+%           modified
+%
+%       - ('IterDisplay', iterDisp = false);
+%           An L-BFGS parameter. If true, the mimization will display
+%           iterative updates and a detailed description of the
+%           optimization termination condition
+%
+%       - ('Linesearch', 'StrongWolfe'):
+%           An L-BFGS parameter. The line search termination condition
+%
+%           (1) 'Armijo'. The line search method finds a step length that
+%           satisfies the sufficient decrease (Armijo) condition,
+%           f(x+a*d) <= f(x) + ftol * a * g(x)^T * d
+%           where x is the current point, d is the current search
+%           direction, a is the step length, and f(x) and g(x) are teh
+%           function and gradient values respectively
+%
+%           (2) 'Wolfe'. The line search method finds a step length that
+%           satisfies BOTH the Armijo condition and the curvature condition
+%           g(x+a*d)^T * d >= wolfe * g(x)^T * d
+%
+%           (3) 'StrongWolfe'. The line search method finds a step length
+%           that satisfies BOTH the Armijo condtion and the strong
+%           curvature condition, |g(x+a*d)^T * d| >= wolfe * |g(x)^T * d|
+%          
+%       - ('LinesearchMethod', 'Backtracking'):
+%           An L-BFGS parameter. The line search algorithm
+%
+%           (1) 'Backtracking'. A line search method where a large initial
+%           guess is tried and then backtracked until a suitable candidate
+%           is found. Compatible with all line search termination
+%           conditions NOTE: This is the only linesearch method that is
+%           currently safe against Inf/NaN values in the objective function
+%           and gradient
+%
+%           (2) 'Bracketing'. Similar to the backtracking line search
+%           method except that it actively maintains an upper and lower
+%           bound of the current search range. Compatible with all line
+%           search termination conditions
+%
+%           (3) 'NocedalWright'. A line search algorithm that guarantees to
+%           find a step size that satisfies the strong Wolfe conditions.
+%           Implementation is based on
+%           "Numerical Optimzation" 2nd Edition,
+%           Jorge Nocedal Stephen J. Wright
+%           Chapter 3. Line Search Methods, pg 60
+%
+%   by Dillon Cislo
+%   Copyright (C) 2019-2021 Dillon Cislo <dilloncislo@gmail.com>
+%   Under GPL license
 
 %--------------------------------------------------------------------------
 % Set Default Parameter Values
@@ -43,7 +232,7 @@ param.epsilon = 1e-5;
 param.epsilon_rel = 1e-7;
 param.past = 0;
 param.delta = 0;
-param.max_iterations = 20000;
+param.max_iterations = 10000;
 param.max_linesearch = 20;
 param.linesearch = 3;
 param.linesearch_method = 1;
@@ -60,24 +249,15 @@ if(nargin<1), error('Please supply face connectivity list!'); end
 if(nargin<2), error('Please supply vertex coordinates!'); end
 if(nargin<3), error('Please supply target edge lengths!'); end
 
-% Check the size of the face connectivity list
-sizef = size(face);
-if ((sizef(2)~=3)||(length(sizef)~=2))
-    error('The face list is improperly sized');
-end
+Nv = size(vertex, 1); % The number of vertices
+% Nf = size(face, 1); % The number of faces
 
-% Check the size of the vertex list
-sizev = size(vertex);
-if ((sizev(2)~=3)||(length(sizev)~=2))
-    error('The vertex list is improperly sized');
-end
-
-% Check if vertex indices exist
-if ( max(face(:)) > sizev(1) )
-    error('The face list contains an undefined vertex');
-elseif ( min(face(:)) < 1 )
-    error('The face list contains a vertex index smaller than 1');
-end
+% Validate the input triangulation
+validateattributes(vertex, {'numeric'}, ...
+    {'2d', 'ncols', 3, 'finite', 'real'} );
+validateattributes(face, {'numeric'}, ...
+    {'2d', 'ncols', 3, 'positive', 'finite', ...
+    'integer', 'real', '<=', Nv} );
 
 % Check the size of the edge list
 tr = triangulation( face, vertex );
@@ -314,13 +494,6 @@ if restrictGrowth
         [ 'Some edges projected along the restriction field already ' ...
         'exceed their maximum allowed lengths' ] );
     
-    % if any( projL(:) > restrictLengths(:) )
-    %     
-    %     warning( [ 'Some edges projected along the restriction ' ...
-    %         'field already exceed their maximum allowed lengths' ] );
-    %     
-    % end
-    
 else
     
     % Prepare non-empty variables for C++ functionality check
@@ -395,7 +568,7 @@ if fixVolume
         
         targetVolume = sum( dot(COM, n, 2) ) ./ 6;
         
-        if (targetVolume < 0)
+        if any(targetVolume < 0)
             
             targetVolume = -targetVolume;
             face = face(:, [2 1 3]);
@@ -404,7 +577,7 @@ if fixVolume
                 phantomFaces = phantomFaces(:, [2 1 3]);
             end
             
-        elseif (targetVolume == 0)
+        elseif any(targetVolume == 0)
             
             error('Invalid user supplied mesh');
             
@@ -495,8 +668,7 @@ newVertex = minimize_elastic_energy( int32(face), double(vertex), ...
     usePhantom, int32(phantomFaces), ...
     double(mu), double(restrictVector), double(restrictLengths) );
 
-newVertex = reshape(newVertex, sizev);
-
+newVertex = reshape(newVertex, [Nv 3]);
 
 end
 
