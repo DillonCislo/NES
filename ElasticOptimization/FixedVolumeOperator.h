@@ -11,6 +11,7 @@
 #define _FIXED_VOLUME_OPERATOR_H_
 
 #include <vector>
+#include <cassert>
 
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
@@ -105,6 +106,10 @@ class FixedVolumeOperator {
     void mapLocalToGlobal( Face_handle f, int Nv,
         const Matrix9d &LHess, std::vector<Triplet> &GTrip );
 
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
 };
 
 ///
@@ -127,9 +132,14 @@ void FixedVolumeOperator::mapLocalToGlobal( Face_handle f,
 	vj = f->halfedge()->prev()->vertex()->id();
 	vk = f->halfedge()->vertex()->id();
 
+  /*
 	if ( (GGrad.size() % 3) != 0 ) {
 		std::runtime_error( "Gradient vector is improperly sized!" );
 	}
+  */
+
+  assert( ((GGrad.size() % 3) == 0) &&
+      "Gradient vector is improperly sized!" );
 
 	int Nv = GGrad.size() / 3;
 
@@ -272,15 +282,15 @@ double FixedVolumeOperator::operator()( Polyhedron &P, VectorXd &grad ) {
     V += R.dot(n);
 
     // Construct local contribution to energy gradient
-   RowGradS gradEFV1, gradEFV2, gradEFV;
+    RowGradS gradEFV1, gradEFV2, gradEFV;
 
-   gradEFV1 << n.transpose(), n.transpose(), n.transpose();
-   gradEFV2 << Ri, Rj, Rk;
+    gradEFV1 << n.transpose(), n.transpose(), n.transpose();
+    gradEFV2 << Ri, Rj, Rk;
 
-   gradEFV = (gradEFV1 / 3.0) + gradEFV2;
+    gradEFV = (gradEFV1 / 3.0) + gradEFV2;
 
-   // Map local gradient to global gradient vector
-   this->mapLocalToGlobal( f, gradEFV, volGrad );
+    // Map local gradient to global gradient vector
+    this->mapLocalToGlobal( f, gradEFV, volGrad );
 
   }
 
@@ -300,9 +310,9 @@ double FixedVolumeOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 ///
 double FixedVolumeOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &hess ) {
 
-  std::runtime_error( "This functionality has not yet been implemented!" );
+  assert( false && "This functionality has not yet been implemented!" );
 
-  return 0.0;
+  return -1.0;
 
 };
 

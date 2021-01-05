@@ -11,6 +11,7 @@
 #define _BEND_OPERATOR_H_
 
 #include <vector>
+#include <cassert>
 
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
@@ -108,6 +109,10 @@ class BendOperator {
 		///
 		void mapLocalToGlobal( Face_handle f, int Nv,
 				const FlapHess &LHess, std::vector<Triplet> &GTrip );
+
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 };
 
@@ -300,7 +305,9 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 
 		}
 
-		std::vector<FlapGrad> gradPhi = FlapMap::hingeGradients( f );
+		std::vector<FlapGrad,
+      Eigen::aligned_allocator<FlapGrad> >
+        gradPhi = FlapMap::hingeGradients( f );
 
 		// Construct the traces and trace gradients
 		double trB = 0.0;
@@ -348,9 +355,15 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &he
 
 	// NOTE: CURRENT GEOMETRY OF POLYHEDRON AND HINGE DERIVATIVES SHOULD BE UP TO DATE
 	int Nv = P.size_of_vertices();
+
+  /*
 	if( hess.size() != ( 9 * Nv * Nv ) ) {
 		std::runtime_error( "Hessian matrix is improperly sized!" );
 	}
+  */
+
+  assert( (hess.size() == ( 9 * Nv * Nv )) &&
+      "Hessian matrix is improperly size!" );
 
 	double Ebend = 0.0; // The global bending energy
 
@@ -378,8 +391,13 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &he
 
 		}
 
-		std::vector<FlapGrad> gradPhi = FlapMap::hingeGradients( f );
-		std::vector<FlapHess> hessPhi = FlapMap::hingeHessians( f );
+		std::vector<FlapGrad,
+      Eigen::aligned_allocator<FlapGrad> >
+        gradPhi = FlapMap::hingeGradients( f );
+
+		std::vector<FlapHess,
+      Eigen::aligned_allocator<FlapHess> >
+        hessPhi = FlapMap::hingeHessians( f );
 
 		// Construct the traces, trace gradients, and trace Hessians
 		double trB = 0.0;

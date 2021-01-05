@@ -36,3 +36,4 @@
 
 # MATLAB
 *.mexa64
+*.m~

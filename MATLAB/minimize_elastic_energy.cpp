@@ -18,18 +18,21 @@
 #include <fstream>
 #include <vector>
 #include <stdexcept>
+#include <cassert>
 
 #include <Eigen/Core>
-#include <LBFGSpp/LBFGS.h>
 
+#include "../external/LBFGSpp/include/LBFGS.h"
 #include "../ElasticOptimization/ElasticProblem.h"
 #include "../ElasticMesh/PolyhedronSoupToPolyhedronMesh.h"
 
-typedef CGAL::Simple_cartesian<double>	 		Kernel;
+typedef CGAL::Simple_cartesian<double>	 		      Kernel;
 typedef CGAL::Polyhedron_3<Kernel, ElasticItems> 	Polyhedron;
 
-typedef Polyhedron::Vertex_handle 			Vertex_handle;
-typedef Polyhedron::Vertex_iterator 			Vertex_iterator;
+typedef Polyhedron::Vertex_handle 		Vertex_handle;
+typedef Polyhedron::Vertex_iterator 	Vertex_iterator;
+typedef Polyhedron::Facet_iterator    Facet_iterator;
+typedef Polyhedron::Halfedge_iterator Halfedge_iterator;
 typedef Polyhedron::HalfedgeDS 				HalfedgeDS;
 
 typedef Eigen::VectorXd 		VectorXd;
@@ -37,21 +40,34 @@ typedef Eigen::MatrixXd 		MatrixXd;
 typedef Eigen::VectorXi 		VectorXi;
 typedef Eigen::MatrixXi 		MatrixXi;
 
+// Enumeration of line search methods
+enum LINE_SEARCH_METHOD {
+
+  // Line search via backtracking
+  LBFGS_LINESEARCH_METHOD_BACKTRACKING = 1,
+
+  // Line search via backtracking + bracketing
+  LBFGS_LINESEARCH_METHOD_BRACKETING = 2,
+  
+  // Line search method by Nocedal and Wright for the
+  // strong Wolfe conditions
+  LBFGS_LINESEARCH_METHOD_NOCEDAL = 3
+
+};
 
 // Prepare a polyhedral mesh object for the elastic minimization procedure
 void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &vertex,
     const VectorXi &v1_ID, const VectorXi &v2_ID,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
-    double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations ) {
+    double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations,
+    double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
 
 
 	// Read in basic mesh topology and vertex locations
 	PolyhedronSoupToPolyhedronMesh<HalfedgeDS, double> inPoly( vertex, faces );
 	P.delegate( inPoly );
 
-	if ( !P.is_valid() ) {
-		std::runtime_error( "Failed to properly construct polyhedral mesh." );
-	}
+  assert( P.is_valid() && "Failed to properly construct polyhedral mesh!" );
 
 	// Update target geometry
 	ElasticUpdater EU;
@@ -72,6 +88,12 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 
 	EU.updateCurrentGeometry( P, x );
 
+  // Set initial/growth restriction geometry
+  if ( mu > 0.0 ) {
+    EU.setRestrictionGeometry( P, restrictVectors, restrictedLengths );
+    EU.setInitialGeometry( P );
+  }
+
 	return;
 
 };
@@ -80,35 +102,71 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXi &v1_ID, const VectorXi &v2_ID,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
-		const LBFGSpp::LBFGSParam<double> param,
+		const LBFGSpp::LBFGSParam<double> &param, int linesearch_method,
 		double h, double nu, double alpha,
 		const VectorXi &target_ID, const MatrixXd &targetLocations,
-    double beta, double targetVolume ) {
+    double beta, double targetVolume, bool usePhantom, const MatrixXi &phantomFaces,
+    double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
 
 	Polyhedron P;
 	preparePolyhedron( P, faces, vertex,
 			v1_ID, v2_ID, targetLengths, targetAngles,
-			alpha, target_ID, targetLocations );
+			alpha, target_ID, targetLocations,
+      mu, restrictVectors, restrictedLengths );
+
+  Polyhedron PP;
+  if ( (beta > 0.0) && usePhantom ) {
+
+    preparePolyhedron( PP, phantomFaces, vertex,
+        v1_ID, v2_ID, targetLengths, targetAngles,
+        alpha, target_ID, targetLocations,
+        mu, restrictVectors, restrictedLengths );
+
+  }
 
 	// Initialize the problem structure
-	ElasticProblem f(P, h, nu, beta, targetVolume, alpha, target_ID );
+	ElasticProblem f(P, h, nu, mu, beta, targetVolume, usePhantom, PP, alpha, target_ID );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;
 	VectorXd x = Eigen::Map<VectorXd>( vertexCopy.data(), vertexCopy.size() );
 
-	// Initialize solver
-	LBFGSpp::LBFGSSolver<double> solver(param);
-
+	// Initialize solver - this is hideous there has to be a better way to do this
+  LBFGSpp::LBFGSSolver<double, LBFGSpp::LineSearchBacktracking> solverBT(param);
+  LBFGSpp::LBFGSSolver<double, LBFGSpp::LineSearchBracketing> solverBR(param);
+  LBFGSpp::LBFGSSolver<double, LBFGSpp::LineSearchNocedalWright> solverNW(param);
+  
 	// Run solver
 	double fx;
-	int niter = solver.minimize( f, x, fx );
+	int niter;
+
+  try {
+
+    switch (linesearch_method) {
+
+      case LBFGS_LINESEARCH_METHOD_BACKTRACKING :
+        niter = solverBT.minimize( f, x, fx );
+        break;
+
+      case LBFGS_LINESEARCH_METHOD_BRACKETING :
+        niter = solverBR.minimize( f, x, fx );
+        break;
+
+      case LBFGS_LINESEARCH_METHOD_NOCEDAL :
+        niter = solverNW.minimize( f, x, fx );
+        break;
+
+    }
+
+  } catch ( const std::runtime_error &ere ) {
+
+    mexWarnMsgTxt(ere.what());
+
+  }
 
 	return x;
 
 };
-
-
 
 // Brief main function to call computational functionalities
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -120,35 +178,50 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	
 	// VARIABLE DECLARATIONS ---------------------------------------------------------------
 	
-	int *m_faces; 			        // The face connectivity list
+	int *m_faces; 			          // The face connectivity list
 	MatrixXi faces;
 
-	double *m_vertex; 		      // The initial vertex positions
+	double *m_vertex; 		        // The initial vertex positions
 	MatrixXd vertex;
 
-	double *m_targetLengths; 	  // The list of target edge lengths
+	double *m_targetLengths; 	    // The list of target edge lengths
 	VectorXd targetLengths;
 
-	double *m_targetAngles; 	  // The list of target bend angles
+	double *m_targetAngles; 	    // The list of target bend angles
 	VectorXd targetAngles;
 	
-	int *m_v1_ID;	 		          // The start vertex ID of each edge
+	int *m_v1_ID;	 		            // The start vertex ID of each edge
 	VectorXi v1_ID;
 
-	int *m_v2_ID; 			        // The end vertex ID of each edge
+	int *m_v2_ID; 			          // The end vertex ID of each edge
 	VectorXi v2_ID;
 
-	int *m_target_ID; 		      // The vertex IDs of those vertices with a target
-	VectorXi target_ID;		      // location
+	int *m_target_ID; 		        // The vertex IDs of those vertices with a target
+	VectorXi target_ID;		        // location
 
-	double *m_targetLocations;	// The target locations of those vertices
+	double *m_targetLocations;	  // The target locations of those vertices
 	MatrixXd targetLocations;
+
+  int *m_phantomFaces;          // The phantom face connectivity list used to
+  MatrixXi phantomFaces;        // calculate the volume of a surface with holes
+
+  double *m_restrictVectors;    // Tangent vectors in the plane of each face
+  MatrixXd restrictVectors;     // along which to restrict growth
+
+  double *m_restrictedLengths;  // The maximum projected length of each edge along
+  MatrixXd restrictedLengths;   // the respective restriction vector
 
 	double h; 			      // The thickness of the elastic sheet
 	double nu; 			      // Poisson's ratio
 	double alpha; 	      // The coefficient of target vertex correspondence
   double beta;          // The coefficient of the fixed folume energy
   double targetVolume;  // The target volume for the fixed volume energy
+  double mu;            // The coefficient of the growth restriction energy
+
+  bool usePhantom;      // If true, the fixed volume energy will be calculated
+                        // using the phantom face connectivity list
+
+  int linesearch_method;  // The line search method to employ
 
 	// L-BFGS parameter objects
 	LBFGSpp::LBFGSParam<double> param;
@@ -157,11 +230,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	int Nv = 0; 	// Number of vertices
 	int Ne = 0;	  // Number of edges
 	int Nt = 0; 	// Number of target vertices
+  int Npf = 0;  // Number of phantom faces
 
 	// EXTRACT INPUT PARAMETERS ------------------------------------------------------------
 
 	// Check for proper number of arguments
-	if (nrhs != 14 ) {
+	if (nrhs != 19 ) {
 		mexErrMsgIdAndTxt("MATLAB:minimize_elastic_energy:nargin",
 				"MINIMIZE_ELASTIC_ENERGY requires fourteen input arguments.");
 	} else if ( nlhs != 1 ) {
@@ -201,12 +275,19 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		param.m = (int) *mxGetPr(mxGetFieldByNumber( prhs[6], 0, idx ));
 	}
 
-	// Tolerance for convergence test
+	// Absolute tolerance for convergence test
 	if ( (idx = mxGetFieldNumber( prhs[6], "epsilon")) == -1 ) {
-		mexErrMsgTxt("No epsilon field!");
+		mexErrMsgTxt("No absolute epsilon field!");
 	} else {
 		param.epsilon = (double) *mxGetPr(mxGetFieldByNumber( prhs[6], 0, idx ));
 	}
+
+  // Relative tolerance for convergence test
+  if ( (idx = mxGetFieldNumber( prhs[6], "epsilon_rel")) == -1 ) {
+    mexErrMsgTxt("No relative epsilon field!");
+  } else {
+    param.epsilon_rel = (double) *mxGetPr(mxGetFieldByNumber( prhs[6], 0, idx ));
+  }
 
 	// Distance for delta-based convergence test
 	if ( (idx = mxGetFieldNumber( prhs[6], "past")) == -1 ) {
@@ -276,7 +357,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		param.iterDisp = true;
 	} else { param.iterDisp = false; };
 
-	// Linesearch procedure
+	// Linesearch termination condition
 	if ( (idx = mxGetFieldNumber( prhs[6], "linesearch")) == -1 ) {
 		mexErrMsgTxt("No linesearch field!");
 	} else {
@@ -292,6 +373,23 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	} else {
 		mexErrMsgTxt("Linesearch field invalid!");
 	};
+
+  // Linesearch method
+  if ( (idx = mxGetFieldNumber( prhs[6], "linesearch_method")) == -1 ) {
+    mexErrMsgTxt("No linesearch method field!");
+  } else {
+    tmpLS = (int) *mxGetPr(mxGetFieldByNumber( prhs[6], 0, idx ));
+  }
+
+  if (tmpLS == 1) {
+    linesearch_method = LBFGS_LINESEARCH_METHOD_BACKTRACKING;
+  } else if (tmpLS == 2) {
+    linesearch_method = LBFGS_LINESEARCH_METHOD_BRACKETING;
+  } else if (tmpLS == 3) {
+    linesearch_method = LBFGS_LINESEARCH_METHOD_NOCEDAL;
+  } else {
+    mexErrMsgTxt("Linesearch method field invalid!");
+  };
 
 	// GET MATERIAL PARAMETERS -------------------------------------------------------------
 	h = *mxGetPr( prhs[7] );
@@ -311,22 +409,56 @@ void mexFunction( int nlhs, mxArray *plhs[],
   beta = *mxGetPr( prhs[12] );
   targetVolume = *mxGetPr( prhs[13] );
 
+  usePhantom = *mxGetLogicals( prhs[14] );
+
+  m_phantomFaces = (int*) mxGetData( prhs[15] );
+  Npf = (int) mxGetM( prhs[15] );
+  phantomFaces = Eigen::Map<MatrixXi>( m_phantomFaces, Npf, 3 );
+
+  // GET GROWTH RESTRICTION PARAMETERS ---------------------------------------------------
+  mu = *mxGetPr( prhs[16] );
+
+  m_restrictVectors = mxGetPr( prhs[17] );
+  restrictVectors = Eigen::Map<MatrixXd>( m_restrictVectors, Nf, 3 );
+
+  m_restrictedLengths = mxGetPr( prhs[18] );
+  restrictedLengths = Eigen::Map<MatrixXd>( m_restrictedLengths, Nf, 3 );
+
 	// -------------------------------------------------------------------------------------
 	// RUN MINIMIZATION
 	// -------------------------------------------------------------------------------------
+  
+  VectorXd x( 3*Nv, 1 );
 	
-	VectorXd x = minimizeElasticEnergy( faces, vertex,
-			v1_ID, v2_ID, targetLengths, targetAngles,
-			param, h, nu,
-			alpha, target_ID, targetLocations,
-      beta, targetVolume );
+  try {
+
+	  x = minimizeElasticEnergy( faces, vertex,
+			  v1_ID, v2_ID, targetLengths, targetAngles,
+		  	param, linesearch_method, h, nu,
+			  alpha, target_ID, targetLocations,
+        beta, targetVolume, usePhantom, phantomFaces,
+        mu, restrictVectors, restrictedLengths );
+
+  } catch ( const std::invalid_argument &eia ) {
+
+    mexErrMsgTxt(eia.what());
+
+  } catch ( const std::logic_error &ele ) {
+
+    mexErrMsgTxt(ele.what());
+
+  } catch ( ... ) {
+
+    mexErrMsgTxt("Unknown exception caught. Optimization terminating abnormally");
+
+  }
 
 	// -------------------------------------------------------------------------------------
 	// OUTPUT PROCESSING
 	// -------------------------------------------------------------------------------------
 	
-	plhs[0] = mxCreateDoubleMatrix( Nv, 3, mxREAL );
-	Eigen::Map<MatrixXd>( mxGetPr( plhs[0] ), Nv, 3 ) = x;
+	plhs[0] = mxCreateDoubleMatrix( 3*Nv, 1, mxREAL );
+	Eigen::Map<MatrixXd>( mxGetPr( plhs[0] ), 3*Nv, 1 ) = x;
 
 	return;
 

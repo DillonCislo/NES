@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <cassert>
 
 #include <Eigen/Core>
 
@@ -39,7 +40,7 @@ class PolyhedronSoupToPolyhedronMesh : public CGAL::Modifier_base<HDS> {
 
 
 	protected:
-		
+
 		///
 		/// The list of 3-D vertex coordinates with size (Nv x 3)
 		///
@@ -84,7 +85,7 @@ void PolyhedronSoupToPolyhedronMesh<HDS, Scalar>::operator()( HDS &target ) {
 		Eigen::RowVector3d vec = m_points.row(i);
 		Point newPnt( vec(0), vec(1), vec(2) );
 		B.add_vertex( newPnt );
-	
+
 	}
 
 	if( B.error() ) {
@@ -103,7 +104,7 @@ void PolyhedronSoupToPolyhedronMesh<HDS, Scalar>::operator()( HDS &target ) {
 			std::cerr << "PolyhedronBuildFromArray<HDS>::" << std::endl;
 			std::cerr << "buildFromEigenArray: input error: facet" << i
 				<< " has less than 3 vertices." << std::endl;
-	
+
 			B.rollback();
 			return;
 		}
@@ -121,7 +122,7 @@ void PolyhedronSoupToPolyhedronMesh<HDS, Scalar>::operator()( HDS &target ) {
 		B.rollback();
 		return;
 	}
-	
+
 	// Remove unconnected vertices
 	if( B.check_unconnected_vertices() ) {
 		if( !B.remove_unconnected_vertices() ) {

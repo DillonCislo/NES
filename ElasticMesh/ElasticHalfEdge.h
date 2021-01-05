@@ -26,8 +26,8 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 
 	public:
 
-		typedef typename Eigen::Vector3d	 	Vector3d;
-		typedef typename Eigen::Matrix<double,1,12>	HingeGrad;
+		typedef typename Eigen::Vector3d	 	          Vector3d;
+		typedef typename Eigen::Matrix<double,1,12>	  HingeGrad;
 		typedef typename Eigen::Matrix<double,12,12> 	HingeHess;
 
 	protected:
@@ -38,6 +38,9 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		//! The directed unit edge vector associated with the halfedge
 		Vector3d m_edgeUnitVector = Vector3d::Zero();
 
+    //! The a precomputed quantity used to calculate the restriction energy
+    double m_initEdgeGrowth = 0.0;
+
 		//! The in-plane mid-edge unit normal
 		Vector3d m_edgeNormal = Vector3d::Zero();
 
@@ -47,6 +50,10 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		//! The target length of the halfedge
 		double m_targetLength = 0.0;
 
+    /// The maximum length of the projection of the halfedge
+    /// along its respective restriction vector
+    double m_restrictLength = 0.0;
+
 		//! The strain component of associated with the edge (see documentation)
 		double m_edgeStrain = 0.0;
 
@@ -55,19 +62,19 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 
 		//! The target hinge angle function of the edge (see documentation)
 		double m_tarPhi = 0.0;
-		
+
 		//! The gradient of the hinge angle function defined on a hinge stencil
-		HingeGrad m_gradPhi;
+		HingeGrad m_gradPhi = HingeGrad::Zero();
 
 		//! The Hessian of the hinge angle function defined on a hinge stencil
-		HingeHess m_hessPhi;
+		HingeHess m_hessPhi = HingeHess::Zero();
 
 		//! Determines whether this halfedge is the major edge of a hinge
 		bool m_isMajor = false;
 
 
 	public:
-		
+
 		/*******************************************************************************
 		 * SETTERS
 		 ******************************************************************************/
@@ -75,10 +82,20 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		//! Calculate all quantites associated with directed edge
 		void calculateEdgeQuantities();
 
+    //! Set the inital edge growth
+    void setInitialEdgeGrowth( double initEdgeGrowth ) {
+      this->m_initEdgeGrowth = initEdgeGrowth;
+    };
+
 		//! Set the target edge length
 		void setTargetEdgeLength( double tarL ) {
 			this->m_targetLength = tarL;
 		};
+
+    //! Set the restricted edge length
+    void setRestrictedLength( double restrictL ) {
+      this->m_restrictLength = restrictL;
+    };
 
 		//! Set the target hinge function
 		void setTargetHingeFunction( double tarPhi ) {
@@ -91,12 +108,12 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		};
 
 		//! Set the gradient of the hinge angle function
-		void setGradPhi( HingeGrad gradPhi ) {
+		void setGradPhi( const HingeGrad &gradPhi ) {
 			this->m_gradPhi = gradPhi;
 		};
 
 		//! Set the Hessian of the hinge angle function
-		void setHessianPhi( HingeHess hessPhi ) {
+		void setHessianPhi( const HingeHess &hessPhi ) {
 			this->m_hessPhi = hessPhi;
 		};
 
@@ -108,12 +125,15 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		/*******************************************************************************
 		 * GETTERS
 		 ******************************************************************************/
-		
+
 		//! Get the directed edge vector
 		Vector3d edgeVector() { return this->m_edgeVector; };
 
 		//! Get the directed edge unit vector
 		Vector3d edgeUnitVector() { return this->m_edgeUnitVector; };
+
+    //! Get the initial edge growth
+    double initEdgeGrowth() { return this->m_initEdgeGrowth; };
 
 		//! Get the in-plane mid-edge unit normal vector
 		Vector3d edgeNormal() { return this->m_edgeNormal; };
@@ -123,6 +143,9 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 
 		//! Get the target edge length
 		double targetLength() { return this->m_targetLength; };
+
+    //! Get the restricted length
+    double restrictedLength() { return this->m_restrictLength; };
 
 		//! Get the target hinge function
 		double tarPhi() { return this->m_tarPhi; };
@@ -142,6 +165,10 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		//! Get the major edge indicator
 		bool isMajor() { return this->m_isMajor; };
 
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
 };
 
 //! Calculate all quantities associate with a directed edge
@@ -152,10 +179,10 @@ void ElasticHalfEdge<Refs>::calculateEdgeQuantities() {
 	// NOTE: ALL FACE AREAS SHOULD BE UP TO DATE
 	this->m_edgeVector = this->vertex()->v() - this->prev()->vertex()->v();
 	this->m_length = this->m_edgeVector.norm();
-	
+
 	Vector3d eHat = this->m_edgeVector / this->m_length;
 	this->m_edgeUnitVector = eHat;
-	
+
 	this->m_edgeStrain = ( this->m_length ) * ( this->m_length ) -
 		( this->m_targetLength ) * ( this->m_targetLength );
 

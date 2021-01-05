@@ -28,6 +28,7 @@
 #include "BendOperator.h"
 #include "FixedPointOperator.h"
 #include "FixedVolumeOperator.h"
+#include "RestrictGrowthOperator.h"
 #include "../ElasticMesh/ElasticUpdater.h"
 
 ///
@@ -59,6 +60,12 @@ class ElasticProblem {
 		///
 		Polyhedron m_P;
 
+    ///
+    /// The phantom polyhedral mesh used to calculated enclosed volumes
+    /// for surfaces with holes
+    ///
+    Polyhedron m_PP;
+
 		///
 		/// A boolean determining whether any vertices are given target locations
 		///
@@ -69,6 +76,18 @@ class ElasticProblem {
     /// is fixed
     ///
     bool fixedVolume;
+
+    ///
+    /// A boolean determining whether the enclosed volume of the elastic body
+    /// is calculated using the basic or the phantom triangulations
+    ///
+    bool usePhantom;
+
+    ///
+    /// A boolean determining whether growth should be restricted along a
+    /// particular direction
+    ///
+    bool restrictGrowth;
 
 		///
 		/// The stretch operator used to calculate the stretching energy
@@ -96,6 +115,12 @@ class ElasticProblem {
     ///
     FixedVolumeOperator m_FVO;
 
+    ///
+    /// The growth restriction operator used to calculate the growth
+    /// restriction energy
+    ///
+    RestrictGrowthOperator m_RGO;
+
 		///
 		/// The elastic updater used to update the polyhedron's physical geometry
 		/// between optimization iterations
@@ -115,9 +140,10 @@ class ElasticProblem {
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
 		///
-		ElasticProblem( Polyhedron &P, double h, double nu,
-        double beta, double targetVolume,
-        double alpha, const VectorXi &target_ID ) : m_P( P ) {
+		ElasticProblem( Polyhedron &P, double h, double nu, double mu,
+        double beta, double targetVolume, bool usePP, Polyhedron &PP,
+        double alpha, const VectorXi &target_ID ) :
+      m_P( P ), m_PP( PP ), usePhantom( usePP ) {
 
       // Create elastic energy operators
 			this->m_SO = StretchOperator( nu );
@@ -148,6 +174,18 @@ class ElasticProblem {
 
       }
 
+      // Growth restriction handling
+      if ( mu > 0.0 ) {
+
+        this->restrictGrowth = true;
+        this->m_RGO = RestrictGrowthOperator( mu );
+
+      } else {
+
+        this->restrictGrowth = false;
+
+      }
+
 
 		};
 
@@ -165,6 +203,10 @@ class ElasticProblem {
 		/// Evaulate the energy, the energy gradient, and the energy Hessian
 		///
 		double operator()( const VectorXd &x, VectorXd &grad, SparseMatrix &hess );
+
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 
 };
@@ -189,7 +231,23 @@ double ElasticProblem::operator()( const VectorXd &x ) {
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P ); }
 
   // OPTIONAL: Calculate the fixed volume energy
-  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P ); }
+  if ( this->fixedVolume ) {
+
+    if ( usePhantom ) {
+
+      this->m_EU.updateCurrentGeometry( this->m_PP, x );
+      Etotal += this->m_FVO( this->m_PP );
+
+    } else {
+
+      Etotal += this->m_FVO( this->m_P );
+
+    }
+
+  }
+
+  // OPTIONAL: Calculate the growth restriction energy
+  if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P ); }
 
 	return Etotal;
 
@@ -221,7 +279,23 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad ); }
 
   // OPTIONAL: Calculate the fixed volume energy
-  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P, grad ); }
+  if ( this->fixedVolume ) {
+
+    if ( usePhantom ) {
+
+      this->m_EU.updateCurrentGeometry( this->m_PP, x );
+      Etotal += this->m_FVO( this->m_PP, grad );
+
+    } else {
+
+      Etotal += this->m_FVO( this->m_P, grad );
+
+    }
+
+  }
+
+  // OPTIONAL: Calculate the growth restriction energy
+  if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P, grad ); }
 
 	return Etotal;
 
@@ -256,7 +330,23 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad, SparseMatr
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad, spHess ); }
 
   // OPTIONAL: Calculate the fixed volume energy
-  if ( this->fixedVolume ) { Etotal += this->m_FVO( this->m_P, grad, spHess ); }
+  if ( this->fixedVolume ) {
+
+    if ( usePhantom ) {
+
+      this->m_EU.updateCurrentGeometry( this->m_PP, x );
+      Etotal += this->m_FVO( this->m_PP, grad, spHess );
+
+    } else {
+
+      Etotal += this->m_FVO( this->m_P, grad, spHess );
+
+    }
+
+  }
+
+  // OPTIONAL: Calculate the growth restriction energy
+  if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P, grad, spHess ); }
 
 	// Set the global Hessian matrix from stand-in
 	hess = spHess;

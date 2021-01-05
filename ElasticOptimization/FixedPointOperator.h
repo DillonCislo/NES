@@ -56,7 +56,7 @@ class FixedPointOperator {
 
 		///
 		/// Fixed point constraint tolerance coefficient
-		/// 
+		///
 		double m_alpha;
 
 	public:
@@ -79,7 +79,7 @@ class FixedPointOperator {
 
 		///
 		/// An overloaded function to evaluate the target vertex correspondence
-		/// energy and its gradient. For use with gradient-based methods ( FIRE, 
+		/// energy and its gradient. For use with gradient-based methods ( FIRE,
 		/// L-BFGS, ... )
 		///
 		double operator()( Polyhedron &P, VectorXd &grad );
@@ -91,6 +91,10 @@ class FixedPointOperator {
 		///
 		double operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &hess );
 
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
 };
 
 ///
@@ -98,7 +102,7 @@ class FixedPointOperator {
 ///
 FixedPointOperator::FixedPointOperator( int Nv, double alpha, const VectorXi &target_ID ) :
 	m_Nv( Nv ), m_alpha( alpha ) {
-	
+
 	// Populate the sparse Hessian matrix
 	// Note: this matrix will remain constant between optimization iterations
 	SparseMatrix fH( 3*Nv, 3*Nv );
@@ -155,7 +159,7 @@ double FixedPointOperator::operator()( Polyhedron &P ) {
 ///
 double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 
-	// NOTE: CURRENT GEOMETRY OF THE POLYHEDRON SHOULD BE UP TO DATE 
+	// NOTE: CURRENT GEOMETRY OF THE POLYHEDRON SHOULD BE UP TO DATE
 	double EFP = 0.0;
 
 	Vertex_iterator v;

@@ -30,11 +30,11 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
 	public:
 
-		typedef typename Refs::Halfedge_handle 		Halfedge_handle;
+		typedef typename Refs::Halfedge_handle 		    Halfedge_handle;
 		typedef typename Refs::Halfedge_const_handle 	Halfedge_const_handle;
 
-		typedef typename Eigen::Vector3d		Vector3d;
-		typedef typename Eigen::Matrix3d		Matrix3d;
+		typedef typename Eigen::Vector3d		        Vector3d;
+		typedef typename Eigen::Matrix3d		        Matrix3d;
 		typedef typename Eigen::Matrix<double,9,9> 	Matrix9d;
 
 	protected:
@@ -56,7 +56,7 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
 		//! The target edge heights
 		Vector3d m_hBar = Vector3d::Zero();
-		
+
 		//! The stretching energy constant matrix
 		Matrix3d m_zeta = Matrix3d::Zero();
 
@@ -65,14 +65,16 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
 		//! The Hessian of the trace of the strain tensor
 		Matrix9d m_hessTrE = Matrix9d::Zero();
-		
+
+    //! A unit tangent vector in the plane of the face along which to restrict growth
+    Vector3d m_restrictVector = Vector3d::Zero();
 
 	public:
 
 		/*******************************************************************************
 		 * SETTERS
 		 ******************************************************************************/
-		
+
 		//! Calculate face area and unit normal vector
 		void calculateFaceAreaAndNormal();
 
@@ -105,7 +107,12 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 		void setHessTrE( const Matrix9d &hE ) {
 			this->m_hessTrE = hE;
 		};
-		
+
+    //! Set the restriction vector
+    void setRestrictionVector( const Vector3d &restrictVector ) {
+      this->m_restrictVector = restrictVector.normalized();
+    };
+
 		/*******************************************************************************
 		 * GETTERS
 		 ******************************************************************************/
@@ -136,6 +143,13 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
 		//! Get the Hessian of the trace of the strain tensor
 		Matrix9d hessTrE() { return this->m_hessTrE; };
+
+    //! Get the restriction vector
+    Vector3d restrictionVector() { return this->m_restrictVector; };
+
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 };
 

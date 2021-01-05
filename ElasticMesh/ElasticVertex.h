@@ -26,40 +26,36 @@ template <class Refs>
 struct ElasticVertex : public CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Point, std::size_t> {
 
 	public:
-		
+
 		typedef typename CGAL::Simple_cartesian<double>	Kernel;
 		typedef typename Kernel::Point_3 		Point;
 
 		typedef typename Eigen::Vector3d 		Vector3d;
 
-		
 	public:
 		//! Default constructor
 		ElasticVertex() :
-		       	CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Point, std::size_t>() {}; 
+		       	CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Point, std::size_t>() {};
 
 		//! Initialized with point p
-		ElasticVertex( const Point &p ) : 
+		ElasticVertex( const Point &p ) :
 			CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Point, std::size_t>( p ) {
-			
+
 			Vector3d v(3);
 			v << p[0], p[1], p[2];
 			this->m_v = v;
 
-			
 		};
 
 		//! Initialized with point p and ID
-		ElasticVertex( const Point &p, std::size_t i ) : 
+		ElasticVertex( const Point &p, std::size_t i ) :
 			CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Point, std::size_t>( p, i ) {
-			
+
 			Vector3d v(3);
 			v << p[0], p[1], p[2];
 			this->m_v = v;
-			
-		};
 
-	
+		};
 
 	protected:
 
@@ -91,6 +87,10 @@ struct ElasticVertex : public CGAL::HalfedgeDS_vertex_max_base_with_id<Refs, Poi
 
 		//! Get the target check
 		bool isTarget() { return this->m_targetCheck; };
+
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 };
 

@@ -49,7 +49,8 @@ class FlapMap {
 		///
 		///  Map all hinge gradients of a particular face to the local flap stencil
 		///
-		static std::vector<FlapGrad> hingeGradients( Face_handle f );
+		static std::vector<FlapGrad,
+      Eigen::aligned_allocator<FlapGrad> > hingeGradients( Face_handle f );
 
 		///
 		/// Map the hinge gradient of a particular hinge to the local flap stencil
@@ -59,22 +60,28 @@ class FlapMap {
 		///
 		/// Map all hinge Hessians of a particular face to the local flap stencil
 		///
-		static std::vector<FlapHess> hingeHessians( Face_handle f );
+		static std::vector<FlapHess,
+      Eigen::aligned_allocator<FlapHess> > hingeHessians( Face_handle f );
 
 		///
 		/// Map the hinge Hessian of a particular hinge to the local flap stencil
 		///
 		static FlapHess mapHingeHessToFlap( Halfedge_handle he, int i );
 
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
 };
 
 ///
 /// Map all hinge gradients of a particular face to the local flap stencil
 ///
-std::vector< Eigen::Matrix<double,1,18> >
+std::vector< Eigen::Matrix<double,1,18>,
+  Eigen::aligned_allocator<Eigen::Matrix<double,1,18> > >
 FlapMap::hingeGradients( Face_handle f ) {
 
-	std::vector<FlapGrad> fGS;
+	std::vector<FlapGrad, Eigen::aligned_allocator<FlapGrad> > fGS;
 	fGS.reserve( 3 );
 
 	Halfedge_handle he = f->halfedge();
@@ -101,10 +108,11 @@ FlapMap::hingeGradients( Face_handle f ) {
 ///
 /// Map all hinge Hessians of a particular face to the local flap stencil
 ///
-std::vector< Eigen::Matrix<double,18,18> >
+std::vector< Eigen::Matrix<double,18,18>,
+  Eigen::aligned_allocator<Eigen::Matrix<double,18,18> > >
 FlapMap::hingeHessians( Face_handle f ) {
 
-	std::vector<FlapHess> fHS;
+	std::vector<FlapHess, Eigen::aligned_allocator<FlapHess> > fHS;
 	fHS.reserve( 3 );
 
 	Halfedge_handle he = f->halfedge();
@@ -153,7 +161,7 @@ FlapMap::mapHingeGradToFlap( Halfedge_handle he, int i ) {
 			} else {
 				fG << hG3, hG1, hG0, hG2, Z3, Z3;
 			}
-			
+
 			break;
 
 		case 1:
@@ -225,7 +233,7 @@ FlapMap::mapHingeHessToFlap( Halfedge_handle he, int i ) {
 				      H32, H30, H31, H33, Z3, Z3,
 				      Z3,  Z3,  Z3,  Z3,  Z3, Z3,
 				      Z3,  Z3,  Z3,  Z3,  Z3, Z3;
-			
+
 			} else {
 
 				fH << H33, H31, H30, H32, Z3, Z3,

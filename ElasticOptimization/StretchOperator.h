@@ -11,6 +11,7 @@
 #define _STRETCH_OPERATOR_H_
 
 #include <vector>
+#include <cassert>
 
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
@@ -49,6 +50,7 @@ class StretchOperator {
 		typedef typename Eigen::Matrix3d 			Matrix3d;
 		typedef typename Eigen::MatrixXd 			MatrixXd;
 		typedef typename Eigen::Matrix<double, 1, 9> 		RowGradS;
+    typedef typename Eigen::Matrix<double, 3, 9>    RowGradVec;
 		typedef typename Eigen::Matrix<double, 9, 9> 		Matrix9d;
 
 		typedef typename Eigen::SparseMatrix<double> 		SparseMatrix;
@@ -59,13 +61,13 @@ class StretchOperator {
 		///
 		/// A vector containing the constant edge vector gradient matrices
 		///
-		std::vector< Eigen::Matrix<double, 3, 9> > m_gradE;
+		std::vector<RowGradVec, Eigen::aligned_allocator<RowGradVec> > m_gradE;
 
 		///
 		/// A vector containing the constant Hessian matrices of the squared
 		/// edge lengths
 		///
-		std::vector< Matrix9d > m_hessL2;
+		std::vector<Matrix9d, Eigen::aligned_allocator<Matrix9d> > m_hessL2;
 
 		///
 		/// Poisson's ratio
@@ -108,7 +110,7 @@ class StretchOperator {
 		/// An overloaded function that maps local gradient quantities to the global
 		/// gradient vector
 		///
-		void mapLocalToGlobal( Face_handle f, 
+		void mapLocalToGlobal( Face_handle f,
 				const RowGradS &LGrad, VectorXd &GGrad );
 
 		///
@@ -130,19 +132,22 @@ StretchOperator::StretchOperator( double nu ) : m_nu( nu ) {
 	Matrix3d Z3 = Matrix3d::Zero();
 	Matrix3d I3 = Matrix3d::Identity();
 
-	Eigen::Matrix<double, 3, 9> gradEI;
+	RowGradVec gradEI;
 	gradEI << Z3, -I3, I3;
 
-	Eigen::Matrix<double, 3, 9> gradEJ;
+	RowGradVec gradEJ;
 	gradEJ << I3, Z3, -I3;
 
-	Eigen::Matrix<double, 3, 9> gradEK;
+	RowGradVec gradEK;
 	gradEK << -I3, I3, Z3;
 
-	std::vector< Eigen::Matrix<double, 3, 9> > gradE{ gradEI, gradEJ, gradEK };
+	std::vector<RowGradVec,
+    Eigen::aligned_allocator<RowGradVec> >
+      gradE{ gradEI, gradEJ, gradEK };
+
 	this->m_gradE = gradE;
 
-	MatrixXd Z9 = Matrix9d::Zero();
+	RowGradVec Z9 = RowGradVec::Zero();
 
 	Matrix9d hessL2I;
 	hessL2I << Z9, -gradEI, gradEI;
@@ -153,7 +158,9 @@ StretchOperator::StretchOperator( double nu ) : m_nu( nu ) {
 	Matrix9d hessL2K;
 	hessL2K << -gradEK, gradEK, Z9;
 
-	std::vector< Matrix9d > hessL2{ hessL2I, hessL2J, hessL2K };
+	std::vector<Matrix9d,
+    Eigen::aligned_allocator<Matrix9d> >
+      hessL2{ hessL2I, hessL2J, hessL2K };
 	this->m_hessL2 = hessL2;
 
 };
@@ -172,9 +179,14 @@ void StretchOperator::mapLocalToGlobal( Face_handle f,
 	vj = f->halfedge()->prev()->vertex()->id();
 	vk = f->halfedge()->vertex()->id();
 
+  /*
 	if ( (GGrad.size() % 3) != 0 ) {
 		std::runtime_error( "Gradient vector is improperly sized!" );
 	}
+  */
+
+  assert( ( (GGrad.size() % 3) == 0 ) &&
+      "Gradient vector is improperly sized!" );
 
 	int Nv = GGrad.size() / 3;
 
@@ -194,10 +206,10 @@ void StretchOperator::mapLocalToGlobal( Face_handle f,
 	GGrad( vk + (2*Nv) ) += LGrad(8);
 
 };
-	
+
 ///
 /// An overloaded function that maps local Hessian quantities to the vector of
-/// Eigen-style triplets, which will be used to construct the global Hessian 
+/// Eigen-style triplets, which will be used to construct the global Hessian
 /// matrix of the stretching energy
 ///
 void StretchOperator::mapLocalToGlobal( Face_handle f, int Nv,
@@ -209,7 +221,7 @@ void StretchOperator::mapLocalToGlobal( Face_handle f, int Nv,
 	vi = f->halfedge()->next()->vertex()->id();
 	vj = f->halfedge()->prev()->vertex()->id();
 	vk = f->halfedge()->vertex()->id();
-	
+
 	std::vector<int> vID = { vi, vj, vk };
 	for( int m = 0; m < 3; m++ ) {
 
@@ -230,7 +242,7 @@ void StretchOperator::mapLocalToGlobal( Face_handle f, int Nv,
 			GTrip.push_back( Triplet( mID+Nv, nID, LHess(M+1,N) ) );
 			GTrip.push_back( Triplet( mID+Nv, nID+Nv, LHess(M+1,N+1) ) );
 			GTrip.push_back( Triplet( mID+Nv, nID+(2*Nv), LHess(M+1,N+2) ) );
-			
+
 			// Z-coordinate --------------------------------------------
 			GTrip.push_back( Triplet( mID+(2*Nv), nID, LHess(M+2,N) ) );
 			GTrip.push_back( Triplet( mID+(2*Nv), nID+Nv, LHess(M+2,N+1) ) );
@@ -286,7 +298,7 @@ double StretchOperator::operator()( Polyhedron &P ) {
 
 		// Single stencil contribution to the energy
 		Estretch += tarA * ( m_nu * trE * trE + (1.0-m_nu) * trE2 ) / 8.0;
-		
+
 	}
 
 	return Estretch;
@@ -331,7 +343,9 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 		gradLJ2 << ej, RowVector3d::Zero(), -ej;
 		gradLK2 << -ek, ek, RowVector3d::Zero();
 
-		std::vector<RowGradS> gradL2{ gradLI2, gradLJ2, gradLK2 };
+		std::vector<RowGradS,
+      Eigen::aligned_allocator<RowGradS> >
+        gradL2{ gradLI2, gradLJ2, gradLK2 };
 
 		// Construct the traces and trace gradients
 		double trE = 0.0;
@@ -349,7 +363,7 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 			for( int j = (i+1); j < 3; j++ ) {
 
 				trE2 += zeta(i,j) * str(i) * str(j);
-				
+
 				gradTrE2 += zeta(i,j) * ( str(i)*gradL2[j] + str(j)*gradL2[i] );
 
 			}
@@ -363,7 +377,7 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 		RowGradS gradES = tarA * ( 2.0 * m_nu * trE * gradTrE +
 				(1.0 - m_nu) * gradTrE2 ) / 8.0;
 		this->mapLocalToGlobal( f, gradES, grad );
-		
+
 	}
 
 	return Estretch;
@@ -378,9 +392,15 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix 
 
 	// NOTE: CURRENT GEOMETRY OF POLYHEDRON SHOULD BE UP TO DATE
 	int Nv = P.size_of_vertices();
+
+  /*
 	if( hess.size() != ( 9 * Nv * Nv ) ) {
 		std::runtime_error( "Hessian matrix is improperly sized!" );
 	}
+  */
+
+  assert( ( hess.size() == ( 9 * Nv * Nv ) ) &&
+      "Hessian matrix is improperly sized!" );
 
 	double Estretch = 0.0; // The global stretching energy
 
@@ -420,7 +440,9 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix 
 		gradLJ2 << ej, RowVector3d::Zero(), -ej;
 		gradLK2 << -ek, ek, RowVector3d::Zero();
 
-		std::vector<RowGradS> gradL2{ gradLI2, gradLJ2, gradLK2 };
+		std::vector<RowGradS,
+      Eigen::aligned_allocator<RowGradS> >
+        gradL2{ gradLI2, gradLJ2, gradLK2 };
 
 		// Construct the traces, trace gradients, and trace Hessians
 		double trE = 0.0;
@@ -443,7 +465,7 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix 
 			for( int j = (i+1); j < 3; j++ ) {
 
 				trE2 += zeta(i,j) * str(i) * str(j);
-				
+
 				gradTrE2 += zeta(i,j) * ( str(i)*gradL2[j] + str(j)*gradL2[i] );
 
 				hessTrE2 += zeta(i,j) * (
@@ -471,7 +493,6 @@ double StretchOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix 
 				(1.0-m_nu) * hessTrE2 ) / 8.0;
 		this->mapLocalToGlobal( f, Nv, hessES, tripletList );
 
-		
 	}
 
 	// Compile the triplet list into the global Hessian matrix

@@ -97,6 +97,9 @@ class HingeOperator {
 		///
 		void constructGradientAndHessian( Polyhedron &P );
 
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 };
 
@@ -116,7 +119,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Construct geometric hinge quantities
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		Vector3d n1 = e->face()->faceNormal();
 		Vector3d n2 = e->opposite()->face()->faceNormal();
 
@@ -179,7 +182,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Construct geometric hinge quantities
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		Vector3d n1 = e0->face()->faceNormal();
 		Vector3d n2 = e00->face()->faceNormal();
 
@@ -212,7 +215,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Gradient construction
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		// Construct bend angle gradient components
 		RowVector3d gradTheta0 = cosAlpha3 * n1.transpose() / h3;
 		gradTheta0 += cosAlpha4 * n2.transpose() / h4;
@@ -257,7 +260,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Construct geometric hinge quantities
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		// Face normals
 		Vector3d n1 = e0->face()->faceNormal();
 		Vector3d n2 = e00->face()->faceNormal();
@@ -294,7 +297,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		Vector3d mh2 = e2->edgeNormal() / h2;
 		Vector3d mh3 = e3->edgeNormal() / h3;
 		Vector3d mh4 = e4->opposite()->edgeNormal() / h4;
-		
+
 		// Hinge angle constants
 		double cCosTheta = 1.0 + n1.dot(n2); // ( 1 + cosTheta )
 		double sinTheta = n1.cross(n2).dot(e0->edgeUnitVector());
@@ -302,7 +305,7 @@ void HingeOperator::constructGradient( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Gradient construction
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		// Form inner product matrices
 		Matrix3d n1n1 = n1 * n1.transpose();
 		Matrix3d n1n2 = n1 * n2.transpose();
@@ -362,7 +365,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Construct geometric hinge quantities
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		Vector3d n1 = e0->face()->faceNormal();
 		Vector3d n2 = e00->face()->faceNormal();
 
@@ -402,7 +405,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Gradient construction
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		// Construct bend angle gradient components
 		RowVector3d gradTheta0 = cosAlpha3 * n1.transpose() / h3;
 		gradTheta0 += cosAlpha4 * n2.transpose() / h4;
@@ -428,7 +431,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 		// /////////////////////////////////////////////////////////////////////////////
 		// Hessian construction
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		// Construct basic bend angle Hessian sub-block constituents
 		Matrix3d M331 = Mijk( cosAlpha3, h3, h3, m3, n1 );
 		Matrix3d M442 = Mijk( cosAlpha4, h4, h4, m4, n2 );
@@ -438,7 +441,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 		Matrix3d M242 = Mijk( cosAlpha2, h2, h4, m4, n2 );
 		Matrix3d M111 = Mijk( cosAlpha1, h1, h1, m1, n1 );
 		Matrix3d M222 = Mijk( cosAlpha2, h2, h2, m2, n2 );
-		
+
 		Matrix3d M3011 = Mijk( cosAlpha3, h3, h01, m01, n1 );
 		Matrix3d M4022 = Mijk( cosAlpha4, h4, h02, m02, n2 );
 		Matrix3d M1011 = Mijk( cosAlpha1, h1, h01, m01, n1 );
@@ -476,7 +479,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 		Matrix3d H31 = H13.transpose();
 
 		Matrix3d H22 = -sym3(N101);
-		
+
 		Matrix3d H23 = Matrix3d::Zero();
 		Matrix3d H32 = Matrix3d::Zero();
 
@@ -491,7 +494,7 @@ void HingeOperator::constructGradientAndHessian( Polyhedron &P ) {
 
 		// Assemble hinge function Hessian matrix
 		double sinTheta = n1.cross(n2).dot( e0->edgeUnitVector() );
-		
+
 		HingeHess hessPhi;
 		hessPhi = 2.0 * sinTheta * gradTheta.transpose() * gradTheta;
 		hessPhi = hessPhi / ( ( 1.0 + cosTheta ) * ( 1.0 + cosTheta ) );

@@ -22,12 +22,15 @@
 #include <vector>
 #include <stdexcept>
 #include <cmath>
+#include <cassert>
 
+/* INCLUDED IN "RestrictGrowthOperator.h"
 // Branchless, type-safe sign function (used to calculate hinge angle)
 template <class T>
 inline int sgn( T val ) {
 	return ( T(0) < val ) - ( val < T(0) );
 };
+*/
 
 ///
 /// Class to update the elements of the elastic mesh before and during equilibration
@@ -53,6 +56,8 @@ class ElasticUpdater {
 		typedef typename Eigen::VectorXi			VectorXi;
 		typedef typename Eigen::MatrixXd 			MatrixXd;
 		typedef typename Eigen::Matrix3d			Matrix3d;
+    typedef typename Eigen::MatrixXi      MatrixXi;
+    typedef typename Eigen::Matrix<double,3,9>    RowGradVec;
 		typedef typename Eigen::Matrix<double,9,9> 		Matrix9d;
 
 	protected:
@@ -60,13 +65,13 @@ class ElasticUpdater {
 		///
 		/// A vector containing the constant edge vector gradient matrices
 		///
-		std::vector< Eigen::Matrix<double,3,9> > m_gradE;
+		std::vector<RowGradVec, Eigen::aligned_allocator<RowGradVec> > m_gradE;
 
 		///
 		/// A vector containing the constant Hessian matrices of the squared
 		/// edge lengths
 		///
-		std::vector<Matrix9d> m_hessL2;
+		std::vector<Matrix9d, Eigen::aligned_allocator<Matrix9d> > m_hessL2;
 
 	public:
 
@@ -78,29 +83,27 @@ class ElasticUpdater {
 		// /////////////////////////////////////////////////////////////////////////////
 		// ASSIGN TARGET VERTEX INFORMATION
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		//! Assign vertex IDs
 		void assignVertexID( Polyhedron &P );
-		
+
 		//! Assign target vertex information
 		std::vector<Vertex_handle> assignTargetVertex( Polyhedron &P,
 				const VectorXi &tarV_ID, const MatrixXd &tarV );
 
-
 		// /////////////////////////////////////////////////////////////////////////////
 		// ASSIGN MAJOR EDGES
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		//! Assign major edges
 		void assignMajorEdges( Polyhedron &P );
-
 
 		// /////////////////////////////////////////////////////////////////////////////
 		// UPDATE TARGET GEOMETRY
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		//! Complete assignment of target geometry and constants
-		void updateTargetGeometry( Polyhedron &P, 
+		void updateTargetGeometry( Polyhedron &P,
 				const VectorXi &v1_ID, const VectorXi &v2_ID,
 				const VectorXd &tarL, const VectorXd &tarTheta );
 
@@ -109,11 +112,10 @@ class ElasticUpdater {
 				const VectorXi &v1_ID, const VectorXi &v2_ID,
 				const VectorXd &tarL, const VectorXd &tarTheta );
 
-
 		// /////////////////////////////////////////////////////////////////////////////
 		// UPDATE CURRENT GEOMETRY
 		// /////////////////////////////////////////////////////////////////////////////
-		
+
 		//! Complete update of current geometry from a vector of vertex coordinates
 		void updateCurrentGeometry( Polyhedron &P, const VectorXd &x );
 
@@ -126,6 +128,24 @@ class ElasticUpdater {
 		//! Update current edges
 		void updateCurrentEdges( Polyhedron &P );
 
+    // /////////////////////////////////////////////////////////////////////////////
+    // SET INITIAL GEOMETRY
+    // /////////////////////////////////////////////////////////////////////////////
+
+    //! Set the initial geometry
+    void setInitialGeometry( Polyhedron &P );
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // SET RESTRICTION GEOMETRY
+    // /////////////////////////////////////////////////////////////////////////////
+
+    //! Set the restriction geometry
+    void setRestrictionGeometry( Polyhedron &P, const MatrixXd &restrictVectors,
+        const MatrixXd &restrictedLengths );
+
+  public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
 };
 
@@ -137,19 +157,22 @@ ElasticUpdater::ElasticUpdater() {
 	Matrix3d Z3 = Matrix3d::Zero();
 	Matrix3d I3 = Matrix3d::Identity();
 
-	Eigen::Matrix<double, 3, 9> gradEI;
+	RowGradVec gradEI;
 	gradEI << Z3, -I3, I3;
 
-	Eigen::Matrix<double, 3, 9> gradEJ;
+	RowGradVec gradEJ;
 	gradEJ << I3, Z3, -I3;
 
-	Eigen::Matrix<double, 3, 9> gradEK;
+	RowGradVec gradEK;
 	gradEK << -I3, I3, Z3;
 
-	std::vector< Eigen::Matrix<double, 3, 9> > gradE{ gradEI, gradEJ, gradEK };
+	std::vector<RowGradVec,
+    Eigen::aligned_allocator<RowGradVec> >
+      gradE{ gradEI, gradEJ, gradEK };
+
 	this->m_gradE = gradE;
 
-	MatrixXd Z9 = Matrix9d::Zero();
+	RowGradVec Z9 = RowGradVec::Zero();
 
 	Matrix9d hessL2I;
 	hessL2I << Z9, -gradEI, gradEI;
@@ -160,7 +183,10 @@ ElasticUpdater::ElasticUpdater() {
 	Matrix9d hessL2K;
 	hessL2K << -gradEK, gradEK, Z9;
 
-	std::vector< Matrix9d > hessL2{ hessL2I, hessL2J, hessL2K };
+	std::vector<Matrix9d,
+    Eigen::aligned_allocator<Matrix9d> >
+      hessL2{ hessL2I, hessL2J, hessL2K };
+
 	this->m_hessL2 = hessL2;
 
 };
@@ -185,7 +211,7 @@ void ElasticUpdater::assignVertexID( Polyhedron &P ) {
 
 //! Assign target vertex information
 std::vector< CGAL::Polyhedron_3<CGAL::Simple_cartesian<double>, ElasticItems>::Vertex_handle >
-ElasticUpdater::assignTargetVertex( Polyhedron &P, 
+ElasticUpdater::assignTargetVertex( Polyhedron &P,
 		const VectorXi &tarV_ID, const MatrixXd &tarV ) {
 
 	// NOTE: VERTEX IDs SHOULD ALREADY BE ASSIGNED
@@ -218,9 +244,13 @@ ElasticUpdater::assignTargetVertex( Polyhedron &P,
 
 		}
 
+    /*
 		if( !vtxSet ) {
 			throw std::runtime_error("Target vertex not found");
 		}
+    */
+
+    assert( vtxSet && "Target vertex not found!" );
 
 	}
 
@@ -253,9 +283,9 @@ void ElasticUpdater::assignTargetLengthsAndAngles( Polyhedron &P,
 	// NOTE: VERTEX IDs SHOULD ALREADY BE ASSIGNED
 	Vertex_iterator v;
 	HV_circulator he;
-	
+
 	bool edgeSet;
-	bool allEdgesSet;
+	bool allEdgesSet = true;
 
 	double theta;
 	double phiBar;
@@ -276,7 +306,7 @@ void ElasticUpdater::assignTargetLengthsAndAngles( Polyhedron &P,
 						he->opposite()->setTargetEdgeLength( tarL(i) );
 
 						theta = tarTheta(i);
-						phiBar = 2.0 * std::tan( theta / 2.0 ); 
+						phiBar = 2.0 * std::tan( theta / 2.0 );
 						he->setTargetHingeFunction( phiBar );
 						he->opposite()->setTargetHingeFunction( phiBar );
 
@@ -298,7 +328,9 @@ void ElasticUpdater::assignTargetLengthsAndAngles( Polyhedron &P,
 
 	}
 
-	if (!allEdgesSet) std::runtime_error("Not all edges properly set.");
+	// if (!allEdgesSet) std::runtime_error("Not all edges properly set.");
+
+  assert( allEdgesSet && "Not all edges properly set!" );
 
 };
 
@@ -322,12 +354,12 @@ void ElasticUpdater::updateTargetGeometry( Polyhedron &P,
 		double tarArea = std::sqrt( s * (s-Li) * (s-Lj) * (s-Lk) );
 		f->setTargetFaceArea( tarArea );
 
-		Vector3d C = Vector3d::Zero();		// Stretching constants Ci
-		Vector3d hBar = Vector3d::Zero();	// Target edge heights
-		Matrix3d zeta = Matrix3d::Zero();	// Stretching constant matrix
-		Matrix3d xi = Matrix3d::Zero(); 	// Bending constant matrix
+		Vector3d C = Vector3d::Zero();		    // Stretching constants Ci
+		Vector3d hBar = Vector3d::Zero();	    // Target edge heights
+		Matrix3d zeta = Matrix3d::Zero();	    // Stretching constant matrix
+		Matrix3d xi = Matrix3d::Zero(); 	    // Bending constant matrix
 		Matrix9d hessTrE = Matrix9d::Zero(); 	// The Hessian of the trace of the strain
-							// tensor
+							                            // tensor
 
 		for( int i = 0; i < 3; i++ ) {
 
@@ -385,10 +417,15 @@ void ElasticUpdater::updateTargetGeometry( Polyhedron &P,
 void ElasticUpdater::updateCurrentVertices( Polyhedron &P, const VectorXd &x ) {
 
 	int Nv = P.size_of_vertices();
+
+  /*
 	if ( x.size() != (3*Nv) ) {
 		std::runtime_error( "Vertex vector is improperly sized!" );
 		return;
 	}
+  */
+
+  assert( (x.size() == (3*Nv)) && "Vertex vector is improperly sized!" );
 
 	int i = 0;
 	Vertex_iterator v;
@@ -457,6 +494,79 @@ void ElasticUpdater::updateCurrentGeometry( Polyhedron &P, const VectorXd &x ) {
 	this->updateCurrentVertices( P, x );
 	this->updateCurrentFaces( P );
 	this->updateCurrentEdges( P );
+
+};
+
+// /////////////////////////////////////////////////////////////////////////////////////////////
+// SET INITIAL GEOMETRY
+// /////////////////////////////////////////////////////////////////////////////////////////////
+
+//! Set the initial geometry
+void ElasticUpdater::setInitialGeometry( Polyhedron &P ) {
+
+  // NOTE: CURRENT AND RESTRICTION GEOMETRIES SHOULD BOTH ALREADY BE UP TO DATE
+  // This function just copies the current geometry into
+  // the initial geometry parameters
+
+  // Set initial halfedge growth scalars
+	Facet_iterator f;
+	for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
+
+    double dblA0 = 2.0 * f->faceArea();
+    Vector3d n0 = f->faceNormal();
+    Vector3d v0 = f->restrictionVector();
+
+    Vector3d ei0 = f->halfedge()->edgeVector();
+    Vector3d ej0 = f->halfedge()->next()->edgeVector();
+    Vector3d ek0 = f->halfedge()->prev()->edgeVector();
+
+    double gi = (v0.dot(n0.cross(ei0))) / dblA0;
+    double gj = (v0.dot(n0.cross(ej0))) / dblA0;
+    double gk = (v0.dot(n0.cross(ek0))) / dblA0;
+
+    f->halfedge()->setInitialEdgeGrowth( gi );
+    f->halfedge()->next()->setInitialEdgeGrowth( gj );
+    f->halfedge()->prev()->setInitialEdgeGrowth( gk );
+
+	}
+
+
+};
+
+
+// /////////////////////////////////////////////////////////////////////////////////////////////
+// SET RESTRICTION GEOMETRY
+// /////////////////////////////////////////////////////////////////////////////////////////////
+
+//! Set the initial restriction geometry
+void ElasticUpdater::setRestrictionGeometry( Polyhedron &P,
+    const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
+
+  int i = 0;
+  Facet_iterator f;
+  for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
+
+    f->setRestrictionVector( restrictVectors.row(i).transpose() );
+
+    // By default, the incident halfedge to the face points at the first
+    // vertex in that face. The input restricted edge length list is
+    // supplied such that the entry corresponding to a particular vertex
+    // sets the length for the edge OPPOSITE that vertex, rather than
+    // incident to it. The correspondence is:
+    // [ 0, 1, 2 ] --> [ 1, 2, 0 ]
+
+    // Incident to v0 - Opposite to v1
+    f->halfedge()->setRestrictedLength( restrictedLengths(i,1) );
+
+    // Incident to v1 - Opposite to v2
+    f->halfedge()->next()->setRestrictedLength( restrictedLengths(i,2) );
+
+    // Incident to v2 - Opposite to v0
+    f->halfedge()->prev()->setRestrictedLength( restrictedLengths(i,0) );
+
+    i++;
+
+  }
 
 };
 
