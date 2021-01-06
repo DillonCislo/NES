@@ -16,7 +16,7 @@ function newVertex = minimizeElasticEnergy(face, vertex, tarLength, ...
 %   OPTIONAL INPUT PARAMETERS: (Name, Value)-Pairs
 %
 %       - ('TargetAngles', tarTheta = zeros(size(tarLength))):
-%           #Ex1 list of target edge hinge angles (i.e. pi minus the angle
+%           #Ex1 list of target edge bending angles (i.e. the angle
 %           between the normal vectors of adjacent faces). Undefined for
 %           boundary edges (but should be set to zero). Default behavior is
 %           that of a non-Euclidean plate
