@@ -437,6 +437,11 @@ end
 
 % Process target geometry input -------------------------------------------
 
+% Check that the target edge list satisfies the triangle inequality
+tarL_F = tarLength(feIDx);
+assert( all( (sum(tarL_F, 2) - 2 .* tarL_F) > 0 ), ...
+    'Target edge length list does not satisfy the triangle inequality' );
+
 % Check the size of the target angle list
 sizeta = size( tarTheta );
 if ( ~isequal( sizee, sizeta ) )

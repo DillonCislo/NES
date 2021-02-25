@@ -1,4 +1,4 @@
-function Es = calculateStretchEnergy(F, V, tarL, nu)
+function [Es, EsF] = calculateStretchEnergy(F, V, tarL, nu)
 %CALCULATESTRETCHENERGY Calculates the (re-scaled) stretching energy used
 %in the Non-Euclidean Shell Simulator (NES) for a given configuration and
 %set of target edge lengths
@@ -13,6 +13,7 @@ function Es = calculateStretchEnergy(F, V, tarL, nu)
 %   OUTPUT PARAMETERS:
 %
 %       Es:     The stretch energy
+%       EsF:    #Fx1 stretch energy on each face
 %
 %   by Dillon Cislo 2021/01/02
 
@@ -98,8 +99,11 @@ dotProd = [ tarL_F(:,1).^2, dotProd(:,3), dotProd(:,2), ...
 TrStr2 = sum( prodStr .* dotProd.^2, 2 ) ./ (64 .* tarA.^4);
 
 % Combine to form the stretch energy
-Es = sum(tarA .* ( nu .* TrStr.^2 + (1-nu) .* TrStr2 ));
-Es = Es ./ 8;
+EsF = tarA .* ( nu .* TrStr.^2 + (1-nu) .* TrStr2 ) ./ 8;
+Es = sum(EsF);
+
+% Es = sum(tarA .* ( nu .* TrStr.^2 + (1-nu) .* TrStr2 ));
+% Es = Es ./ 8;
 
 end
 

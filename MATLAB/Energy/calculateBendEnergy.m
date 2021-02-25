@@ -1,4 +1,4 @@
-function Eb = calculateBendEnergy(F, V, tarL, tarAng, nu, h)
+function [Eb, EbF] = calculateBendEnergy(F, V, tarL, tarAng, nu, h)
 %CALCULATEBENDENERGY Calculates the (re-scaled) bending energy used
 %in the Non-Euclidean Shell Simulator (NES) for a given configuration and
 %set of target edge lengths and hinge angles
@@ -15,6 +15,7 @@ function Eb = calculateBendEnergy(F, V, tarL, tarAng, nu, h)
 %   OUTPUT PARAMETERS:
 %
 %       Eb:     The bend energy
+%       EbF:    #Fx1 bend energy on each face
 %
 %   by Dillon Cislo 2021/01/02
 
@@ -135,8 +136,11 @@ prodL = [ tarL_F .* repmat(tarL_F(:,1), 1, 3), ...
 TrBM2 = sum( prodPhi .* dotProd.^2 ./ prodL, 2 ) ./ (4 .* tarA.^2);
 
 % Combine to form the bend energy
-Eb = sum(tarA .* ( nu .* TrBM.^2 + (1-nu) .* TrBM2 ));
-Eb = h.^2 .* Eb ./ 24;
+EbF = h.^2 .* tarA .* ( nu .* TrBM.^2 + (1-nu) .* TrBM2 ) ./ 24;
+Eb = sum(EbF);
+
+% Eb = sum(tarA .* ( nu .* TrBM.^2 + (1-nu) .* TrBM2 ));
+% Eb = h.^2 .* Eb ./ 24;
 
 end
 

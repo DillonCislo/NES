@@ -53,6 +53,11 @@ if ~isempty(TR.freeBoundary)
     
 end
 
+[ ~, isCCW, isCW ] = CCWOrientFaces(F, V);
+if ~(isCCW || isCW)
+    warning('Mesh faces do not appear to be consistently ordered');
+end
+
 %--------------------------------------------------------------------------
 % Calculate Fixed Volume Energy
 %--------------------------------------------------------------------------
@@ -66,10 +71,6 @@ ek = V(F(:,2), :) - V(F(:,1), :);
 n = cross(ej, ek, 2);
 
 Vol = dot(COM, n, 2);
-
-if (numel(unique(sign(Vol))) ~= 1)
-    warning('Mesh faces do not appear to be consistently ordered');
-end
 
 % The enclosed volume
 Vol = sum(Vol) ./ 6;
