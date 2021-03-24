@@ -36,7 +36,7 @@ validateattributes( nu, {'numeric'}, ...
     {'scalar', 'finite', 'nonnan'});
 
 TR = triangulation(F,V);
-E = TR.edges;
+E = sort(TR.edges, 2);
 
 if (size(tarL,2) ~= 1), tarL = tarL.'; end
 if (numel(tarL) ~= numel(E(:,1)))

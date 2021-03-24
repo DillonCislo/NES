@@ -270,9 +270,9 @@ e1IDx = sort( [ face(:,3), face(:,2) ], 2 );
 e2IDx = sort( [ face(:,1), face(:,3) ], 2 );
 e3IDx = sort( [ face(:,2), face(:,1) ], 2 );
 
-[~, e1IDx] = ismember( e1IDx, edgeList, 'rows' );
-[~, e2IDx] = ismember( e2IDx, edgeList, 'rows' );
-[~, e3IDx] = ismember( e3IDx, edgeList, 'rows' );
+[~, e1IDx] = ismember( e1IDx, sort(edgeList, 2), 'rows' );
+[~, e2IDx] = ismember( e2IDx, sort(edgeList, 2), 'rows' );
+[~, e3IDx] = ismember( e3IDx, sort(edgeList, 2), 'rows' );
 
 feIDx = [ e1IDx e2IDx e3IDx ];
 
