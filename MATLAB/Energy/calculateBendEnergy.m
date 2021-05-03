@@ -45,6 +45,8 @@ validateattributes( h, {'numeric'}, ...
 
 TR = triangulation(F,V);
 E = TR.edges;
+v1 = E(:,1);
+v2 = E(:,2);
 
 if (size(tarL,2) ~= 1), tarL = tarL.'; end
 if (numel(tarL) ~= numel(E(:,1)))
@@ -98,17 +100,28 @@ tarA = sqrt( tarA .* (tarA - tarL_F(:,1)) .* ...
 
 % Calculate physical mesh hinge functions----------------------------------
 % phi(theta) = 2 * tan( theta / 2 )
-fN = TR.faceNormal;
-N1 = fN(efIDx(:,1), :);
-N2 = fN(efIDx(:,2), :);
 
-crossN = cross(N1, N2, 2);
-crossHat = crossN ./ sqrt(sum(crossN.^2, 2));
+% OLD WAY - PRODUCES INCORRECT ANGLE SIGN FOR SOME EDGES ******************
+% fN = TR.faceNormal;
+% N1 = fN(efIDx(:,1), :);
+% N2 = fN(efIDx(:,2), :);
+% 
+% crossN = cross(N1, N2, 2);
+% crossHat = crossN ./ sqrt(sum(crossN.^2, 2));
+% 
+% crossN(bdyEdge, :) = zeros(sum(bdyEdge), 3);
+% crossHat(bdyEdge, :) = zeros(sum(bdyEdge), 3);
+% 
+% phi = 2 .* dot(crossN, crossHat, 2) ./ (1 + dot(N1, N2, 2));
+% phi_F = phi(feIDx);
+%**************************************************************************
 
-crossN(bdyEdge, :) = zeros(sum(bdyEdge), 3);
-crossHat(bdyEdge, :) = zeros(sum(bdyEdge), 3);
+% Edge bending angles
+% theta = calculate_edge_angles( int32(F-1), double(V), ...
+%     int32(v1-1), int32(v2-1) );
+theta = calculate_edge_angles( F, V, v1, v2 );
 
-phi = 2 .* dot(crossN, crossHat, 2) ./ (1 + dot(N1, N2, 2));
+phi = 2 * tan( theta / 2 );
 phi_F = phi(feIDx);
 
 % Calculate bend strains on mesh faces

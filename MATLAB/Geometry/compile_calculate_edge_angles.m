@@ -1,0 +1,9 @@
+function compile_calculate_edge_angles
+
+    mex -v -O calculate_edge_angles.cpp ...
+        CXXOPTIMFLAGS="-O3" ...
+        -I/usr/include:/usr/local/include ...
+        -L/usr/lib:/usr/local/lib -lCGAL -lgmp -lboost_thread
+
+end
+
