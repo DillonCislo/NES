@@ -140,14 +140,14 @@ class ElasticProblem {
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
 		///
-		ElasticProblem( Polyhedron &P, double h, double nu, double mu,
+		ElasticProblem( Polyhedron &P, double nu, double mu,
         double beta, double targetVolume, bool usePP, Polyhedron &PP,
         double alpha, const VectorXi &target_ID ) :
       m_P( P ), m_PP( PP ), usePhantom( usePP ) {
 
       // Create elastic energy operators
 			this->m_SO = StretchOperator( nu );
-			this->m_BO = BendOperator( h, nu );
+			this->m_BO = BendOperator( nu );
 
       // Fixed point handling
       if ( alpha > 0.0 ) {

@@ -11,6 +11,7 @@ function [Eb, EbF] = calculateBendEnergy(F, V, tarL, tarAng, nu, h)
 %       tarAng:     #Ex1 list of target edge hinge angles
 %       nu:         The 2D Poisson ratio
 %       h:          The thickness of the elastic body
+%                   Either a scalar or #Fx1 vector
 %
 %   OUTPUT PARAMETERS:
 %
@@ -41,7 +42,7 @@ validateattributes( tarAng, {'numeric'}, ...
 validateattributes( nu, {'numeric'}, ...
     {'scalar', 'finite', 'nonnan'});
 validateattributes( h, {'numeric'}, ...
-    {'scalar', 'finite','nonnan', 'positive'});
+    {'finite','nonnan'});
 
 TR = triangulation(F,V);
 E = TR.edges;
@@ -56,6 +57,23 @@ end
 if (size(tarAng,2) ~= 1), tarAng = tarAng.'; end
 if (numel(tarAng) ~= numel(E(:,1)))
     error('Target edge length list is improperly sized');
+end
+
+% Ensure thickness input is properly sized
+if isscalar(h)
+    h = h .* ones(size(F,1), 1);
+elseif isvector(h) 
+    assert(numel(h) == size(F,1), 'Thickness is improperly sized');
+else
+    error('Thickness is improperly sized');
+end
+
+% Ensure thickness is non-negative
+assert( all(h >= 0), 'Thickness must be non-negative' );
+
+% Ensure Poisson's ratio is valid
+if ( (nu < -1) || (nu > 0.5) )
+    error('Invalid Poisson''s ratio');
 end
 
 % Construct edge-face correspondence tool ---------------------------------

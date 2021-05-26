@@ -45,6 +45,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 		//! The target area of the face
 		double m_tarFaceArea = 0.0;
 
+    //! The thickness of the face
+    double m_thickness = 0.0;
+
 		//! The unit normal vector of the face
 		Vector3d m_faceNormal = Vector3d::Zero();
 
@@ -83,6 +86,11 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 			this->m_tarFaceArea = tarFaceArea;
 		};
 
+    //! Set the face thickness
+    void setThickness( const double &thickness ) {
+      this->m_thickness = thickness;
+    };
+
 		//! Set the stretching trace constants
 		void setC( const Vector3d &C ) {
 			this->m_C = C;
@@ -119,6 +127,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
 		//! Get face area
 		double faceArea() { return this->m_faceArea; };
+
+    //! Get face thickness
+    double thickness() { return this->m_thickness; };
 
 		//! Get face normal
 		Vector3d faceNormal() { return this->m_faceNormal; };

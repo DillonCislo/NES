@@ -43,6 +43,11 @@ if (numel(tarL) ~= numel(E(:,1)))
     error('Target edge length list is improperly sized');
 end
 
+% Ensure Poisson's ratio is valid
+if ( (nu < -1) || (nu > 0.5) )
+    error('Invalid Poisson''s ratio');
+end
+
 % Construct face-edge correspondence tool ---------------------------------
 % Given a list of scalar edge quantities, 'EQ', the output of
 % 'EQ(feIDx(f,i))' is that quantity corresponding to the edge opposite the

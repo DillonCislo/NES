@@ -53,11 +53,6 @@ class BendOperator {
 	protected:
 
 		///
-		/// The thickness of the elastic shell
-		///
-		double m_h;
-
-		///
 		/// Poisson's ratio
 		///
 		double m_nu;
@@ -72,7 +67,7 @@ class BendOperator {
 		///
 		/// Default constructor
 		///
-		BendOperator( double h, double nu ) : m_h( h ), m_nu( nu ) {};
+		BendOperator( double nu ) :  m_nu( nu ) {};
 
 		///
 		/// An overloaded function to evaluate the bending energy.
@@ -213,7 +208,7 @@ void BendOperator::mapLocalToGlobal( Face_handle f, int Nv,
 			GTrip.push_back( Triplet( mID+Nv, nID, LHess(M+1,N) ) );
 			GTrip.push_back( Triplet( mID+Nv, nID+Nv, LHess(M+1,N+1) ) );
 			GTrip.push_back( Triplet( mID+Nv, nID+(2*Nv), LHess(M+1,N+2) ) );
-			
+
 			// Z-coordinate --------------------------------------------
 			GTrip.push_back( Triplet( mID+(2*Nv), nID, LHess(M+2,N) ) );
 			GTrip.push_back( Triplet( mID+(2*Nv), nID+Nv, LHess(M+2,N+1) ) );
@@ -239,6 +234,7 @@ double BendOperator::operator()( Polyhedron &P ) {
 	for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
 
 		double tarA = f->tarFaceArea();
+    double h = f->thickness();
 		Vector3d hBar = f->hBar();
 		Matrix3d xi = f->xi();
 
@@ -269,7 +265,7 @@ double BendOperator::operator()( Polyhedron &P ) {
 		}
 
 		// Single stencil contribution to the energy
-		Ebend += m_h * m_h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
+		Ebend += h * h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
 
 	}
 
@@ -292,6 +288,7 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 	for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
 
 		double tarA = f->tarFaceArea();
+    double h = f->thickness();
 		Vector3d hBar = f->hBar();
 		Matrix3d xi = f->xi();
 
@@ -334,10 +331,10 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 		}
 
 		// Single stencil contribution to the energy
-		Ebend += m_h * m_h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
+		Ebend += h * h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
 
 		// Singe stencil contribution to the energy gradient
-		FlapGrad gradEB = m_h * m_h * tarA * ( 2.0 * m_nu * trB * gradTrB
+		FlapGrad gradEB = h * h * tarA * ( 2.0 * m_nu * trB * gradTrB
 				+ (1-m_nu) * gradTrB2 ) / 24.0;
 		this->mapLocalToGlobal( f, gradEB, grad );
 
@@ -378,6 +375,7 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &he
 	for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
 
 		double tarA = f->tarFaceArea();
+    double h = f->thickness();
 		Vector3d hBar = f->hBar();
 		Matrix3d xi = f->xi();
 
@@ -438,15 +436,15 @@ double BendOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatrix &he
 		}
 
 		// Single stencil contribution to the energy
-		Ebend += m_h * m_h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
+		Ebend += h * h * tarA * ( m_nu * trB * trB + (1-m_nu) * trB2 ) / 24.0;
 
 		// Single stencil contribution to the energy gradient
-		FlapGrad gradEB = m_h * m_h * tarA * ( 2.0 * m_nu * trB * gradTrB
+		FlapGrad gradEB = h * h * tarA * ( 2.0 * m_nu * trB * gradTrB
 				+ (1-m_nu) * gradTrB2 ) / 24.0;
 		this->mapLocalToGlobal( f, gradEB, grad );
 
 		// Single stencil contribution to the energy Hessian
-		FlapHess hessEB = m_h * m_h * tarA * (
+		FlapHess hessEB = h * h * tarA * (
 				2.0 * m_nu * ( gradTrB.transpose() * gradTrB + trB * hessTrB ) +
 				(1.0 - m_nu) * hessTrB2 ) / 24.0;
 		this->mapLocalToGlobal( f, Nv, hessEB, tripletList );

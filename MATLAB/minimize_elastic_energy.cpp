@@ -59,7 +59,8 @@ enum LINE_SEARCH_METHOD {
 void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &vertex,
     const VectorXi &v1_ID, const VectorXi &v2_ID,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
-    double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations,
+    const VectorXd &thickness, double alpha,
+    const VectorXi &target_ID, const MatrixXd &targetLocations,
     double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
 
 
@@ -82,6 +83,9 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 	EU.assignMajorEdges( P );
 	EU.updateTargetGeometry( P, v1_ID, v2_ID, targetLengths, targetAngles );
 
+  // Assign material parameters
+  EU.assignMaterialParameters( P, thickness );
+
 	// Update current geometry
 	MatrixXd vertexCopy = vertex;
 	VectorXd x = Eigen::Map<Eigen::VectorXd>( vertexCopy.data(), vertexCopy.size() );
@@ -103,7 +107,7 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXi &v1_ID, const VectorXi &v2_ID,
 		const VectorXd &targetLengths, const VectorXd &targetAngles,
 		const LBFGSpp::LBFGSParam<double> &param, int linesearch_method,
-		double h, double nu, double alpha,
+		const VectorXd &thickness, double nu, double alpha,
 		const VectorXi &target_ID, const MatrixXd &targetLocations,
     double beta, double targetVolume, bool usePhantom, const MatrixXi &phantomFaces,
     double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
@@ -111,21 +115,26 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 	Polyhedron P;
 	preparePolyhedron( P, faces, vertex,
 			v1_ID, v2_ID, targetLengths, targetAngles,
-			alpha, target_ID, targetLocations,
+			thickness, alpha, target_ID, targetLocations,
       mu, restrictVectors, restrictedLengths );
 
   Polyhedron PP;
   if ( (beta > 0.0) && usePhantom ) {
 
+    // NOTE: The phantom mesh is initiated with zero thickness
+    // This is fine since the phantom mesh is only used in the
+    // calculation of the target volume energy
+    VectorXd zeroThickness = VectorXd::Zero( phantomFaces.rows(), 1 );
+
     preparePolyhedron( PP, phantomFaces, vertex,
         v1_ID, v2_ID, targetLengths, targetAngles,
-        alpha, target_ID, targetLocations,
+        zeroThickness, alpha, target_ID, targetLocations,
         mu, restrictVectors, restrictedLengths );
 
   }
 
 	// Initialize the problem structure
-	ElasticProblem f(P, h, nu, mu, beta, targetVolume, usePhantom, PP, alpha, target_ID );
+	ElasticProblem f(P, nu, mu, beta, targetVolume, usePhantom, PP, alpha, target_ID );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;
@@ -163,6 +172,24 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
     mexWarnMsgTxt(ere.what());
 
   }
+
+  /*
+  // Test face ordering
+  Facet_iterator fID;
+  for( fID = P.facets_begin(); fID != P.facets_end(); fID++ ) {
+
+    int vj = fID->halfedge()->next()->vertex()->id();
+    int vk = fID->halfedge()->prev()->vertex()->id();
+    int vi = fID->halfedge()->vertex()->id();
+
+    vi++;
+    vj++;
+    vk++;
+
+    std::cout << vi << " " << vj << " " << vk << std::endl;
+
+  }
+  */
 
 	return x;
 
@@ -211,7 +238,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
   double *m_restrictedLengths;  // The maximum projected length of each edge along
   MatrixXd restrictedLengths;   // the respective restriction vector
 
-	double h; 			      // The thickness of the elastic sheet
+  double *m_thickness;          // The thickness of the elastic sheet
+  VectorXd thickness;
+
 	double nu; 			      // Poisson's ratio
 	double alpha; 	      // The coefficient of target vertex correspondence
   double beta;          // The coefficient of the fixed folume energy
@@ -392,7 +421,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
   };
 
 	// GET MATERIAL PARAMETERS -------------------------------------------------------------
-	h = *mxGetPr( prhs[7] );
+	m_thickness = mxGetPr( prhs[7] );
+  thickness = Eigen::Map<VectorXd>( m_thickness, Nf, 1 );
+
 	nu = *mxGetPr( prhs[8] );
 
 	// GET TARGET VERTEX CORRESPONDENCE PARAMETERS -----------------------------------------
@@ -434,7 +465,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
 	  x = minimizeElasticEnergy( faces, vertex,
 			  v1_ID, v2_ID, targetLengths, targetAngles,
-		  	param, linesearch_method, h, nu,
+		  	param, linesearch_method, thickness, nu,
 			  alpha, target_ID, targetLocations,
         beta, targetVolume, usePhantom, phantomFaces,
         mu, restrictVectors, restrictedLengths );

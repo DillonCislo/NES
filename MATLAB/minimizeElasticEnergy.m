@@ -23,7 +23,8 @@ function newVertex = minimizeElasticEnergy(face, vertex, tarLength, ...
 %
 %       - ('Thickness', h = 0.01):
 %           The thickness of the elastic sheet in the same units as the
-%           edge lengths
+%           edge lengths. Can be supplied either as a scalar or as a
+%           thickness for each face of the mesh
 %
 %       - ('Poisson', nu = 0.5):
 %           The Poisson ratio of the elastic sheet.
@@ -433,6 +434,25 @@ end
 if ( (param.linesearch_method == 3) && (param.linesearch ~= 3) )
     error(['The line search method of Nocedal and Wright can ' ...
         'only be used with the Strong Wolfe termination conditions']);
+end
+
+% Process material parameter input ----------------------------------------
+
+% Ensure thickness input is properly sized
+if isscalar(h)
+    h = h .* ones(size(face,1), 1);
+elseif isvector(h) 
+    assert(numel(h) == size(face,1), 'Thickness is improperly sized');
+else
+    error('Thickness is improperly sized');
+end
+
+% Ensure thickness is non-negative
+assert( all(h >= 0), 'Thickness must be non-negative' );
+
+% Ensure Poisson's ratio is valid
+if ( (nu < -1) || (nu > 0.5) )
+    error('Invalid Poisson''s ratio');
 end
 
 % Process target geometry input -------------------------------------------
