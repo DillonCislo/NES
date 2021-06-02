@@ -134,7 +134,8 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
   }
 
 	// Initialize the problem structure
-	ElasticProblem f(P, nu, mu, beta, targetVolume, usePhantom, PP, alpha, target_ID );
+	ElasticProblem f(P, nu, mu, beta, targetVolume,
+      usePhantom, PP, alpha, target_ID, targetLocations );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;
