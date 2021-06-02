@@ -238,6 +238,7 @@ double FixedVolumeOperator::operator()( Polyhedron &P ) {
 
   // Calculate the fixed volume energy
   double EFV = this->m_beta * ( V - this->m_tarVol ) * ( V - this->m_tarVol );
+  EFV = EFV / ( this->m_tarVol * this->m_tarVol );
 
   return EFV;
 
@@ -297,7 +298,10 @@ double FixedVolumeOperator::operator()( Polyhedron &P, VectorXd &grad ) {
   V = V / 6.0;
 
   double EFV = this->m_beta * ( V - this->m_tarVol ) * ( V - this->m_tarVol );
+  EFV = EFV / ( this->m_tarVol * this->m_tarVol );
+
   volGrad = ( this->m_beta * ( V - this->m_tarVol ) / 3.0 ) * volGrad;
+  volGrad = volGrad / ( this->m_tarVol * this->m_tarVol );
   grad += volGrad;
 
   return EFV;
