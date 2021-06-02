@@ -35,6 +35,7 @@ typedef Polyhedron::Facet_iterator    Facet_iterator;
 typedef Polyhedron::Halfedge_iterator Halfedge_iterator;
 typedef Polyhedron::HalfedgeDS 				HalfedgeDS;
 
+typedef Eigen::Vector3d     Vector3d;
 typedef Eigen::VectorXd 		VectorXd;
 typedef Eigen::MatrixXd 		MatrixXd;
 typedef Eigen::VectorXi 		VectorXi;
@@ -133,9 +134,18 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 
   }
 
+  // Calculate a length scale corresponding to the system size
+  // (Used to normalize the fixed point energy)
+  Vector3d systemVector;
+  systemVector << (vertex.col(0).maxCoeff() - vertex.col(0).minCoeff()),
+               (vertex.col(1).maxCoeff() - vertex.col(1).minCoeff()),
+               (vertex.col(2).maxCoeff() - vertex.col(2).minCoeff());
+
+  double systemSize = systemVector.squaredNorm();
+
 	// Initialize the problem structure
 	ElasticProblem f(P, nu, mu, beta, targetVolume,
-      usePhantom, PP, alpha, target_ID, targetLocations );
+      usePhantom, PP, alpha, target_ID, systemSize );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;

@@ -59,6 +59,11 @@ class FixedPointOperator {
 		///
 		double m_alpha;
 
+    ///
+    /// A length scale for the physical system. Used to normalize the energy
+    ///
+    double m_systemSize;
+
 	public:
 		///
 		/// Null constructor
@@ -69,7 +74,7 @@ class FixedPointOperator {
 		/// Default constructor
 		///
 		FixedPointOperator( int Nv, double alpha,
-        const VectorXi &target_ID, const MatrixXd &targetLocations );
+        const VectorXi &target_ID, double systemSize );
 
 		///
 		/// An overloaded function to calculate the target vertex correspondence
@@ -102,8 +107,8 @@ class FixedPointOperator {
 /// Default constructor
 ///
 FixedPointOperator::FixedPointOperator( int Nv, double alpha,
-    const VectorXi &target_ID, const MatrixXd &targetLocations ) :
-	m_Nv( Nv ), m_alpha( alpha ) {
+    const VectorXi &target_ID, double systemSize ) :
+	m_Nv( Nv ), m_alpha( alpha ), m_systemSize( systemSize ) {
 
 	// Populate the sparse Hessian matrix
 	// Note: this matrix will remain constant between optimization iterations
@@ -114,11 +119,10 @@ FixedPointOperator::FixedPointOperator( int Nv, double alpha,
 	for( int k = 0; k < target_ID.size(); k++ ) {
 
 		int vID = target_ID(k);
-    double tarV2 = targetLocations.row(k).squaredNorm();
 
-		tripletList.push_back( Triplet( vID, vID, 2.0 * alpha / tarV2 ) );
-		tripletList.push_back( Triplet( vID+Nv, vID+Nv, 2.0 * alpha / tarV2 ) );
-		tripletList.push_back( Triplet( vID+(2*Nv), vID+(2*Nv), 2.0 * alpha / tarV2 ) );
+		tripletList.push_back( Triplet( vID, vID, 2.0 * alpha / systemSize ) );
+		tripletList.push_back( Triplet( vID+Nv, vID+Nv, 2.0 * alpha / systemSize ) );
+		tripletList.push_back( Triplet( vID+(2*Nv), vID+(2*Nv), 2.0 * alpha / systemSize ) );
 
 	}
 
@@ -145,12 +149,12 @@ double FixedPointOperator::operator()( Polyhedron &P ) {
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += dx.squaredNorm() / (v->tarV().squaredNorm());
+			EFP += dx.squaredNorm();
 
 		}
 	}
 
-	EFP *= this->m_alpha;
+	EFP *= ( this->m_alpha / this->m_systemSize );
 
 	return EFP;
 
@@ -174,10 +178,10 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += dx.squaredNorm() / (v->tarV().squaredNorm());
+			EFP += dx.squaredNorm();
 
 			// The single vertex contribution to the energy gradient
-			Vector3d gradEFP = 2.0 * this->m_alpha * dx / (v->tarV().squaredNorm());
+			Vector3d gradEFP = 2.0 * this->m_alpha * dx / this->m_systemSize;
 
 			grad( vID ) += gradEFP(0);
 			grad( vID+m_Nv ) += gradEFP(1);
@@ -186,7 +190,7 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad ) {
 		}
 	}
 
-	EFP *= this->m_alpha;
+	EFP *= ( this->m_alpha / this->m_systemSize );
 
 	return EFP;
 
@@ -212,10 +216,10 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatr
 			Vector3d dx = v->v() - v->tarV();
 
 			// The single vertex contribution to the energy
-			EFP += dx.squaredNorm() / (v->tarV().squaredNorm());
+			EFP += dx.squaredNorm();
 
 			// The single vertex contribution to the energy gradient
-			Vector3d gradEFP = 2.0 * this->m_alpha * dx / (v->tarV().squaredNorm());
+			Vector3d gradEFP = 2.0 * this->m_alpha * dx / this->m_systemSize;
 
 			grad( vID ) += gradEFP(0);
 			grad( vID+m_Nv ) += gradEFP(1);
@@ -224,7 +228,7 @@ double FixedPointOperator::operator()( Polyhedron &P, VectorXd &grad, SparseMatr
 		}
 	}
 
-	EFP *= this->m_alpha;
+	EFP *= ( this->m_alpha / this->m_systemSize );
 
 	return EFP;
 

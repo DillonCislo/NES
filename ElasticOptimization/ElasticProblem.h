@@ -142,7 +142,7 @@ class ElasticProblem {
 		///
 		ElasticProblem( Polyhedron &P, double nu, double mu,
         double beta, double targetVolume, bool usePP, Polyhedron &PP,
-        double alpha, const VectorXi &target_ID, const MatrixXd &targetLocations ) :
+        double alpha, const VectorXi &target_ID, double systemSize ) :
       m_P( P ), m_PP( PP ), usePhantom( usePP ) {
 
       // Create elastic energy operators
@@ -154,7 +154,7 @@ class ElasticProblem {
 
         this->anyFixed = true;
         int Nv = this->m_P.size_of_vertices();
-        this->m_FPO = FixedPointOperator( Nv, alpha, target_ID, targetLocations );
+        this->m_FPO = FixedPointOperator( Nv, alpha, target_ID, systemSize );
 
       } else {
 
