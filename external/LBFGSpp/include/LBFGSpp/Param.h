@@ -186,6 +186,7 @@ public:
         max_step       = Scalar(1e+20);
         ftol           = Scalar(1e-4);
         wolfe          = Scalar(0.9);
+        iterDisp       = false;
     }
 
     ///
