@@ -156,7 +156,7 @@ public:
               // Re-set the current x and gradient to their
               // previous (valid) values
               x.noalias()  = m_xp;
-              m_grad.noalias() = m_grad;
+              m_grad.noalias() = m_gradp;
               throw;
 
             }
