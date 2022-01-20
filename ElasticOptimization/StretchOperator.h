@@ -151,12 +151,15 @@ StretchOperator::StretchOperator( double nu ) : m_nu( nu ) {
 
 	Matrix9d hessL2I;
 	hessL2I << Z9, -gradEI, gradEI;
+  hessL2I = (2.0 * hessL2I.array()).matrix();
 
 	Matrix9d hessL2J;
 	hessL2J << gradEJ, Z9, -gradEJ;
+  hessL2J = (2.0 * hessL2J.array()).matrix();
 
 	Matrix9d hessL2K;
 	hessL2K << -gradEK, gradEK, Z9;
+  hessL2K = (2.0 * hessL2K.array()).matrix();
 
 	std::vector<Matrix9d,
     Eigen::aligned_allocator<Matrix9d> >
