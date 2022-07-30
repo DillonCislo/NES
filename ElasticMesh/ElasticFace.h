@@ -72,6 +72,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
     //! A unit tangent vector in the plane of the face along which to restrict growth
     Vector3d m_restrictVector = Vector3d::Zero();
 
+    //! A boolean specifying whether the face lies on the mesh boundary
+    bool m_isBoundary = false;
+
 	public:
 
 		/*******************************************************************************
@@ -121,6 +124,11 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
       this->m_restrictVector = restrictVector.normalized();
     };
 
+    //! Set whether the face is on the mesh boundary
+    void setBoundaryTag( bool isBoundary ) {
+      this->m_isBoundary = isBoundary;
+    };
+
 		/*******************************************************************************
 		 * GETTERS
 		 ******************************************************************************/
@@ -157,6 +165,9 @@ struct ElasticFace : public CGAL::HalfedgeDS_face_max_base_with_id<Refs, Plane, 
 
     //! Get the restriction vector
     Vector3d restrictionVector() { return this->m_restrictVector; };
+
+    //! Get whether the face is on the boundary
+    bool isBoundary() { return this->m_isBoundary; };
 
   public:
 

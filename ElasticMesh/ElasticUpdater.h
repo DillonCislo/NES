@@ -92,6 +92,13 @@ class ElasticUpdater {
 				const VectorXi &tarV_ID, const MatrixXd &tarV );
 
     // /////////////////////////////////////////////////////////////////////////////
+    // SET BOUNDARY TAGS
+    // /////////////////////////////////////////////////////////////////////////////
+
+    //! Assign boundary tags to mesh faces
+    void assignFacetBoundaryTags( Polyhedron &P );
+
+    // /////////////////////////////////////////////////////////////////////////////
     // ASSIGN MATERIAL PARAMETERS
     // /////////////////////////////////////////////////////////////////////////////
 
@@ -199,6 +206,53 @@ ElasticUpdater::ElasticUpdater() {
 
 };
 
+// /////////////////////////////////////////////////////////////////////////////////////////////
+// SET BOUNDARY TAGS
+// /////////////////////////////////////////////////////////////////////////////////////////////
+
+//! Assign boundary tags to mesh faces
+void ElasticUpdater::assignFacetBoundaryTags( Polyhedron &P ) {
+
+  // A facet is considered a boundary facet if ANY of its vertices
+  // lie on the mesh boundary
+  Facet_iterator f;
+  for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
+
+    bool onBdy = false;
+
+    // Determine if the first vertex is on the boundary
+    HV_circulator he = f->halfedge()->next()->vertex()->vertex_begin();
+    do {
+
+      onBdy = onBdy || he->is_border_edge();
+      he++;
+
+    } while ( he != f->halfedge()->next()->vertex()->vertex_begin() );
+
+    // Determine if the second vertex is on the boundary
+    he = f->halfedge()->prev()->vertex()->vertex_begin();
+    do {
+
+      onBdy = onBdy || he->is_border_edge();
+      he++;
+
+    } while ( he != f->halfedge()->prev()->vertex()->vertex_begin() );
+
+    // Determine if the third vertex is on the boundary
+    he = f->halfedge()->vertex()->vertex_begin();
+    do {
+
+      onBdy = onBdy || he->is_border_edge();
+      he++;
+
+    } while ( he != f->halfedge()->vertex()->vertex_begin() );
+
+    f->setBoundaryTag( onBdy );
+
+  }
+
+};
+
 
 // /////////////////////////////////////////////////////////////////////////////////////////////
 // ASSIGN TARGET VERTEX INFORMATION
@@ -252,13 +306,8 @@ ElasticUpdater::assignTargetVertex( Polyhedron &P,
 
 		}
 
-    /*
-		if( !vtxSet ) {
+		if( !vtxSet )
 			throw std::runtime_error("Target vertex not found");
-		}
-    */
-
-    assert( vtxSet && "Target vertex not found!" );
 
 	}
 
@@ -354,9 +403,8 @@ void ElasticUpdater::assignTargetLengthsAndAngles( Polyhedron &P,
 
 	}
 
-	// if (!allEdgesSet) std::runtime_error("Not all edges properly set.");
-
-  assert( allEdgesSet && "Not all edges properly set!" );
+	if (!allEdgesSet)
+    throw std::runtime_error("Not all edges properly set.");
 
 };
 
@@ -367,6 +415,7 @@ void ElasticUpdater::updateTargetGeometry( Polyhedron &P,
 	// NOTE: VERTEX IDs SHOULD ALREADY BE ASSIGNED
 	this->assignTargetLengthsAndAngles( P, v1_ID, v2_ID, tarL, tarTheta );
 
+  // Set face-based target quantities and target internal angles
 	Facet_iterator f;
 	for( f = P.facets_begin(); f != P.facets_end(); f++ ) {
 
@@ -376,9 +425,18 @@ void ElasticUpdater::updateTargetGeometry( Polyhedron &P,
 		Vector3d L;
 		L << Li, Lj, Lk;
 
+    // Calculate target face areas
 		double s = ( Li + Lj + Lk ) / 2.0;
 		double tarArea = std::sqrt( s * (s-Li) * (s-Lj) * (s-Lk) );
 		f->setTargetFaceArea( tarArea );
+
+    // Calculate target internal angles
+    double thetaI = std::acos( ( Lk*Lk + Lj*Lj - Li*Li ) / ( 2.0 * Lj * Lk ) );
+    double thetaJ = std::acos( ( Li*Li + Lk*Lk - Lj*Lj ) / ( 2.0 * Lk * Li ) );
+    double thetaK = std::acos( ( Lj*Lj + Li*Li - Lk*Lk ) / ( 2.0 * Li * Lj ) );
+    f->halfedge()->setTargetAngle( thetaI );
+    f->halfedge()->next()->setTargetAngle( thetaJ );
+    f->halfedge()->prev()->setTargetAngle( thetaK );
 
 		Vector3d C = Vector3d::Zero();		    // Stretching constants Ci
 		Vector3d hBar = Vector3d::Zero();	    // Target edge heights
@@ -431,8 +489,75 @@ void ElasticUpdater::updateTargetGeometry( Polyhedron &P,
 		f->setHessTrE( hessTrE );
 
 	}
-};
 
+  // Set Laplace-Beltrami edge weights
+  Edge_iterator e;
+	for( e = P.edges_begin(); e != P.edges_end(); e++ ) {
+
+    double LBW = 0.0;
+
+    if ( !e->is_border() )
+      LBW += std::cos(e->targetAngle()) / std::sin(e->targetAngle());
+
+    if ( !e->opposite()->is_border() ) {
+
+      LBW += std::cos(e->opposite()->targetAngle()) /
+        std::sin(e->opposite()->targetAngle());
+
+    }
+
+    LBW = LBW / 2.0;
+
+    e->setLaplaceBeltramiWeight( LBW );
+    e->opposite()->setLaplaceBeltramiWeight( LBW );
+
+  }
+
+  // Set the vertex target areas, angle sums, and Laplace-Beltrami edge weight sums
+  Vertex_iterator v;
+  for( v = P.vertices_begin(); v != P.vertices_end(); v++ ) {
+
+    double angSum = 0.0;
+    double AV = 0.0;
+    double LBWSum = 0.0;
+
+    HV_circulator he = v->vertex_begin();
+    do {
+
+      if ( !he->is_border() ) {
+
+        // Accumulate the incident angle
+        angSum += he->prev()->targetAngle();
+
+        // Accumulate the incident Laplace-Beltrami edge weight
+        LBWSum += he->laplaceBeltramiWeight();
+
+        double AF = he->face()->tarFaceArea();
+
+        double Li2 = he->prev()->targetLength(); Li2 *= Li2;
+        double Lj2 = he->targetLength(); Lj2 *= Lj2;
+        double Lk2 = he->next()->targetLength(); Lk2 *= Lk2;
+
+        // double cotI = ( Lj2 + Lk2 - Li2 ) / ( 4.0 * AF );
+        double cotJ = ( Lk2 + Li2 - Lj2 ) / ( 4.0 * AF );
+        double cotK = ( Li2 + Lj2 - Lk2 ) / ( 4.0 * AF );
+
+        // Accumulate the contribution to the vertex area
+        AV += Lj2 * cotJ + Lk2 * cotK;
+
+      }
+
+      he++;
+
+    } while ( he != v->vertex_begin() );
+
+    v->setTargetVertexArea( AV / 8.0 );
+    v->setTargetAngleSum( angSum );
+    v->setLaplaceBeltramiSum( LBWSum );
+
+  }
+
+};
 
 // /////////////////////////////////////////////////////////////////////////////////////////////
 // UPDATE CURRENT GEOMETRY
@@ -444,14 +569,8 @@ void ElasticUpdater::updateCurrentVertices( Polyhedron &P, const VectorXd &x ) {
 
 	int Nv = P.size_of_vertices();
 
-  /*
-	if ( x.size() != (3*Nv) ) {
-		std::runtime_error( "Vertex vector is improperly sized!" );
-		return;
-	}
-  */
-
-  assert( (x.size() == (3*Nv)) && "Vertex vector is improperly sized!" );
+	if ( x.size() != (3*Nv) )
+		throw std::runtime_error( "Vertex vector is improperly sized!" );
 
 	int i = 0;
 	Vertex_iterator v;
@@ -512,7 +631,6 @@ void ElasticUpdater::updateCurrentEdges( Polyhedron &P ) {
 	}
 
 };
-
 
 //! Complete update of current geometry from a vector of vertex coordinates
 void ElasticUpdater::updateCurrentGeometry( Polyhedron &P, const VectorXd &x ) {

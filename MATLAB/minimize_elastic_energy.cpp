@@ -75,6 +75,7 @@ void preparePolyhedron( Polyhedron &P, const MatrixXi &faces, const MatrixXd &ve
 	ElasticUpdater EU;
 
 	EU.assignVertexID( P );
+  EU.assignFacetBoundaryTags( P );
 
 	if ( alpha > 0.0 ) {
 		std::vector<Vertex_handle> tV;
@@ -111,7 +112,8 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 		const VectorXd &thickness, double nu, double alpha,
 		const VectorXi &target_ID, const MatrixXd &targetLocations,
     double beta, double targetVolume, bool usePhantom, const MatrixXi &phantomFaces,
-    double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths ) {
+    double mu, const MatrixXd &restrictVectors, const MatrixXd &restrictedLengths,
+    double kappa ) {
 
 	Polyhedron P;
 	preparePolyhedron( P, faces, vertex,
@@ -143,9 +145,12 @@ VectorXd minimizeElasticEnergy( const MatrixXi &faces, const MatrixXd &vertex,
 
   double systemSize = systemVector.squaredNorm();
 
+  // Determine if the bending energy should be calculated
+  bool useBending = (thickness.array() > 0.0).any();
+
 	// Initialize the problem structure
-	ElasticProblem f(P, nu, mu, beta, targetVolume,
-      usePhantom, PP, alpha, target_ID, systemSize );
+	ElasticProblem f(P, nu, mu, useBending, beta, targetVolume,
+      usePhantom, PP, alpha, target_ID, systemSize, kappa );
 
 	// Initial guess
 	MatrixXd vertexCopy = vertex;
@@ -257,6 +262,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
   double beta;          // The coefficient of the fixed folume energy
   double targetVolume;  // The target volume for the fixed volume energy
   double mu;            // The coefficient of the growth restriction energy
+  double kappa;         // The coefficient of the mean curvature smoothness energy
 
   bool usePhantom;      // If true, the fixed volume energy will be calculated
                         // using the phantom face connectivity list
@@ -275,9 +281,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	// EXTRACT INPUT PARAMETERS ------------------------------------------------------------
 
 	// Check for proper number of arguments
-	if (nrhs != 19 ) {
+	if (nrhs != 20 ) {
 		mexErrMsgIdAndTxt("MATLAB:minimize_elastic_energy:nargin",
-				"MINIMIZE_ELASTIC_ENERGY requires fourteen input arguments.");
+				"MINIMIZE_ELASTIC_ENERGY requires twenty input arguments.");
 	} else if ( nlhs != 1 ) {
 		mexErrMsgIdAndTxt("MATLAB:minimize_elastic_energy:nargout",
 				"MINIMIZE_ELASTIC_ENERGY requires one output argument.");
@@ -466,6 +472,10 @@ void mexFunction( int nlhs, mxArray *plhs[],
   m_restrictedLengths = mxGetPr( prhs[18] );
   restrictedLengths = Eigen::Map<MatrixXd>( m_restrictedLengths, Nf, 3 );
 
+  // GET MEAN CURVATURE SMOOTHNESS PARAMETERS -------------------------------------------
+  
+  kappa = *mxGetPr( prhs[19] );
+
 	// -------------------------------------------------------------------------------------
 	// RUN MINIMIZATION
 	// -------------------------------------------------------------------------------------
@@ -479,7 +489,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		  	param, linesearch_method, thickness, nu,
 			  alpha, target_ID, targetLocations,
         beta, targetVolume, usePhantom, phantomFaces,
-        mu, restrictVectors, restrictedLengths );
+        mu, restrictVectors, restrictedLengths, kappa );
 
   } catch ( const std::invalid_argument &eia ) {
 

@@ -27,7 +27,7 @@ class FixedPointOperator {
 
 	private:
 
-		typedef typename CGAL::Simple_cartesian<double> 		Kernel;
+		typedef typename CGAL::Simple_cartesian<double> 		        Kernel;
 		typedef typename CGAL::Polyhedron_3<Kernel, ElasticItems> 	Polyhedron;
 
 		typedef typename Polyhedron::Vertex_iterator 		Vertex_iterator;
@@ -40,7 +40,7 @@ class FixedPointOperator {
 		typedef typename Eigen::MatrixXd 			MatrixXd;
 
 		typedef typename Eigen::SparseMatrix<double> 		SparseMatrix;
-		typedef typename Eigen::Triplet<double> 		Triplet;
+		typedef typename Eigen::Triplet<double> 		    Triplet;
 
 	protected:
 

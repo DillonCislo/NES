@@ -28,33 +28,33 @@ class StretchOperator {
 
 	private:
 
-		typedef typename CGAL::Simple_cartesian<double> 		Kernel;
-		typedef typename CGAL::Polyhedron_3<Kernel, ElasticItems>	Polyhedron;
+		typedef typename CGAL::Simple_cartesian<double> 		        Kernel;
+		typedef typename CGAL::Polyhedron_3<Kernel, ElasticItems>	  Polyhedron;
 
-		typedef typename Polyhedron::Vertex_iterator 		Vertex_iterator;
-		typedef typename Polyhedron::Facet_iterator 		Facet_iterator;
-		typedef typename Polyhedron::Edge_iterator 		Edge_iterator;
+		typedef typename Polyhedron::Vertex_iterator 		  Vertex_iterator;
+		typedef typename Polyhedron::Facet_iterator 		  Facet_iterator;
+		typedef typename Polyhedron::Edge_iterator 		    Edge_iterator;
 		typedef typename Polyhedron::Halfedge_iterator 		Halfedge_iterator;
 
 		typedef typename Polyhedron::Halfedge_handle 		Halfedge_handle;
-		typedef typename Polyhedron::Face_handle 		Face_handle;
-		typedef typename Polyhedron::Vertex_handle 		Vertex_handle;
+		typedef typename Polyhedron::Face_handle 		    Face_handle;
+		typedef typename Polyhedron::Vertex_handle 		  Vertex_handle;
 
 		typedef typename Polyhedron::Halfedge_around_vertex_circulator 	HV_circulator;
 		typedef typename Polyhedron::Halfedge_around_facet_circulator 	HF_circulator;
 
-		typedef typename Eigen::RowVector3d 			RowVector3d;
-		typedef typename Eigen::Vector3d 			Vector3d;
-		typedef typename Eigen::VectorXd 			VectorXd;
-		typedef typename Eigen::VectorXi 			VectorXi;
-		typedef typename Eigen::Matrix3d 			Matrix3d;
-		typedef typename Eigen::MatrixXd 			MatrixXd;
+		typedef typename Eigen::RowVector3d 	          RowVector3d;
+		typedef typename Eigen::Vector3d 			          Vector3d;
+		typedef typename Eigen::VectorXd 			          VectorXd;
+		typedef typename Eigen::VectorXi 			          VectorXi;
+		typedef typename Eigen::Matrix3d 			          Matrix3d;
+		typedef typename Eigen::MatrixXd 			          MatrixXd;
 		typedef typename Eigen::Matrix<double, 1, 9> 		RowGradS;
     typedef typename Eigen::Matrix<double, 3, 9>    RowGradVec;
 		typedef typename Eigen::Matrix<double, 9, 9> 		Matrix9d;
 
 		typedef typename Eigen::SparseMatrix<double> 		SparseMatrix;
-		typedef typename Eigen::Triplet<double> 		Triplet;
+		typedef typename Eigen::Triplet<double> 		    Triplet;
 
 	protected:
 

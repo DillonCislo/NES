@@ -77,6 +77,10 @@ function newVertex = minimizeElasticEnergy(face, vertex, tarLength, ...
 %           A (#Fx3) set of maximum projected edge lengths along the growth
 %           restriction vector for each edge in a given face
 %
+%       - ('Kappa', kappa = 0):
+%           The scalar coefficient of the mean curvature smoothness energy.
+%           Set to zero if mean curvature should not be smoothed.
+%
 %       - ('MHistorySize', m = 20):
 %           An L-BFGS parameter. The number of corrections used to
 %           approximate the inverse Hessian matrix. The L-BFGS routine
@@ -192,7 +196,7 @@ function newVertex = minimizeElasticEnergy(face, vertex, tarLength, ...
 %           Chapter 3. Line Search Methods, pg 60
 %
 %   by Dillon Cislo
-%   Copyright (C) 2019-2021 Dillon Cislo <dilloncislo@gmail.com>
+%   Copyright (C) 2019-2022 Dillon Cislo <dilloncislo@gmail.com>
 %   Under GPL license
 
 %--------------------------------------------------------------------------
@@ -225,6 +229,9 @@ restrictVector = [];
 restrictLengths = [];
 
 restrictGrowth = false;
+
+% Mean curvature smoothness parameters ------------------------------------
+kappa = 0;
 
 % Minimization parameters -------------------------------------------------
 param = struct();
@@ -354,6 +361,11 @@ for i = 1:length(varargin)
     end
     if strcmpi(varargin{i}, 'Mu')
         mu = varargin{i+1};
+    end
+
+    % Mean curvature smoothness parameters --------------------------------
+    if strcmpi(varargin{i}, 'Kappa')
+        kappa = varargin{i+1};
     end
     
     % Material parameters -------------------------------------------------
@@ -669,6 +681,10 @@ else
     
 end
 
+% Process mean curvature smoothness input ----------------------------------
+assert(kappa >= 0, ...
+    'Mean curvature smoothness coeffcient must be non-negative');
+
 
 % Update vIDs to match the 0-indexing in C++
 face = face-1; v1 = v1-1; v2 = v2-1;
@@ -691,7 +707,8 @@ newVertex = minimize_elastic_energy( int32(face), double(vertex), ...
     double(alpha), int32(target_ID), double(targetLocations), ...
     double(beta), double(targetVolume), ...
     usePhantom, int32(phantomFaces), ...
-    double(mu), double(restrictVector), double(restrictLengths) );
+    double(mu), double(restrictVector), double(restrictLengths), ...
+    double(kappa) );
 
 newVertex = reshape(newVertex, [Nv 3]);
 

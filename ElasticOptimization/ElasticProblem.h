@@ -29,6 +29,7 @@
 #include "FixedPointOperator.h"
 #include "FixedVolumeOperator.h"
 #include "RestrictGrowthOperator.h"
+#include "MeanCurvatureOperator.h"
 #include "../ElasticMesh/ElasticUpdater.h"
 
 ///
@@ -66,6 +67,12 @@ class ElasticProblem {
     ///
     Polyhedron m_PP;
 
+    ///
+    /// A boolean determining whether the bending energy should be calculated
+    /// during energy/gradient computations
+    ///
+    bool useBending;
+
 		///
 		/// A boolean determining whether any vertices are given target locations
 		///
@@ -88,6 +95,11 @@ class ElasticProblem {
     /// particular direction
     ///
     bool restrictGrowth;
+
+    ///
+    /// A boolean determining whether the mean curvature should be smoothed
+    ///
+    bool smoothMeanCurvature;
 
 		///
 		/// The stretch operator used to calculate the stretching energy
@@ -121,6 +133,12 @@ class ElasticProblem {
     ///
     RestrictGrowthOperator m_RGO;
 
+    ///
+    /// The mean curvature operator used to calculate the mean curvature
+    /// smoothness energy
+    ///
+    MeanCurvatureOperator m_MCO;
+
 		///
 		/// The elastic updater used to update the polyhedron's physical geometry
 		/// between optimization iterations
@@ -140,10 +158,10 @@ class ElasticProblem {
 		/// Note that we expect the polyhedron object to have a fully updated
 		/// target geometry prior to construction of the problem structure
 		///
-		ElasticProblem( Polyhedron &P, double nu, double mu,
+		ElasticProblem( Polyhedron &P, double nu, double mu, bool useBend,
         double beta, double targetVolume, bool usePP, Polyhedron &PP,
-        double alpha, const VectorXi &target_ID, double systemSize ) :
-      m_P( P ), m_PP( PP ), usePhantom( usePP ) {
+        double alpha, const VectorXi &target_ID, double systemSize, double kappa ) :
+      m_P( P ), m_PP( PP ), usePhantom( usePP ), useBending( useBend ) {
 
       // Create elastic energy operators
 			this->m_SO = StretchOperator( nu );
@@ -186,6 +204,18 @@ class ElasticProblem {
 
       }
 
+      // Mean curvature handling
+      if ( kappa > 0.0 ) {
+
+        this->smoothMeanCurvature = true;
+        this->m_MCO = MeanCurvatureOperator( P, kappa );
+
+      } else {
+
+        this->smoothMeanCurvature = false;
+
+      }
+
 
 		};
 
@@ -222,10 +252,16 @@ double ElasticProblem::operator()( const VectorXd &x ) {
 	// Calculate the stretching energy
 	double Estretch = this->m_SO( this->m_P );
 
-	// Calculate the bending energy
-	double Ebend = this->m_BO( this->m_P );
+  double Etotal = Estretch;
 
-	double Etotal = Estretch + Ebend;
+	// OPTIONAL: Calculate the bending energy
+  double Ebend = 0.0;
+  if ( this->useBending ) {
+
+	  Ebend = this->m_BO( this->m_P );
+    Etotal += Ebend;
+
+  }
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P ); }
@@ -249,6 +285,9 @@ double ElasticProblem::operator()( const VectorXd &x ) {
   // OPTIONAL: Calculate the growth restriction energy
   if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P ); }
 
+  // OPTIONAL: Calculate the mean curvature smoothness energy
+  if ( this->smoothMeanCurvature ) { Etotal += this->m_MCO( this->m_P ); }
+
 	return Etotal;
 
 };
@@ -269,11 +308,19 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 
 	// Calculate stretching energy
 	double Estretch = this->m_SO( this->m_P, grad );
+  std::cout << "Estretch = " << Estretch << std::endl;
 
-	// Calculate bending energy
-	double Ebend = this->m_BO( this->m_P, grad );
+  double Etotal = Estretch;
 
-	double Etotal = Estretch + Ebend;
+	// OPTIONAL: Calculate bending energy
+  double Ebend = 0.0;
+  if ( this->useBending ) {
+
+	  Ebend = this->m_BO( this->m_P, grad );
+    // std::cout << "Ebend = " << Ebend << std::endl;
+    Etotal += Ebend;
+
+  }
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad ); }
@@ -296,6 +343,15 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 
   // OPTIONAL: Calculate the growth restriction energy
   if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P, grad ); }
+
+  // OPTIONAL: Calculate the mean curvature energy
+  if ( this->smoothMeanCurvature ) {
+
+    double EH = this->m_MCO( this->m_P, grad );
+    std::cout << "EH = " << EH << std::endl;
+    Etotal += EH;
+
+  }
 
 	return Etotal;
 
@@ -321,10 +377,16 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad, SparseMatr
 	// Calculate stretching energy
 	double Estretch = this->m_SO( this->m_P, grad, spHess );
 
-	// Calculate bending energy
-	double Ebend = this->m_BO( this->m_P, grad, spHess );
+  double Etotal = Estretch;
 
-	double Etotal = Estretch + Ebend;
+	// OPTIONAL: Calculate bending energy
+  double Ebend = 0.0;
+  if ( this->useBending ) {
+
+	  Ebend = this->m_BO( this->m_P, grad, spHess );
+    Etotal += Ebend;
+
+  }
 
 	// OPTIONAL: Calculate the target vertex correspondence energy
 	if ( this->anyFixed ) { Etotal += this->m_FPO( this->m_P, grad, spHess ); }
@@ -347,6 +409,9 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad, SparseMatr
 
   // OPTIONAL: Calculate the growth restriction energy
   if ( this->restrictGrowth ) { Etotal += this->m_RGO( this->m_P, grad, spHess ); }
+
+  // OPTIONAL: Calculate the mean curvature smoothness energy
+  if ( this->smoothMeanCurvature ) { Etotal += this->m_MCO( this->m_P, grad, spHess ); }
 
 	// Set the global Hessian matrix from stand-in
 	hess = spHess;

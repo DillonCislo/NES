@@ -72,6 +72,11 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 		//! Determines whether this halfedge is the major edge of a hinge
 		bool m_isMajor = false;
 
+    //! The edge weight of the target cotan Laplace-Beltrami operator
+    double m_laplaceBeltramiWeight = 0.0;
+
+    //! Target internal angle opposite the halfedge (defined on [0, 2*pi))
+    double m_targetAngle = 0.0;
 
 	public:
 
@@ -122,6 +127,16 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 			this->m_isMajor = isMajor;
 		};
 
+    //! Set the edge weight of the target cotan Laplace-Beltrami operator
+    void setLaplaceBeltramiWeight( double LBW ) {
+      this->m_laplaceBeltramiWeight = LBW;
+    };
+
+    //! Set the internal angle opposite the halfedge
+    void setTargetAngle( double ang ) {
+      this->m_targetAngle = ang;
+    };
+
 		/*******************************************************************************
 		 * GETTERS
 		 ******************************************************************************/
@@ -164,6 +179,12 @@ struct ElasticHalfEdge : public CGAL::HalfedgeDS_halfedge_max_base_with_id<Refs,
 
 		//! Get the major edge indicator
 		bool isMajor() { return this->m_isMajor; };
+
+    //! Get the edge weight of the target cotan Laplace-Beltrami operator
+    double laplaceBeltramiWeight() { return this->m_laplaceBeltramiWeight; };
+
+    //! Get the internal angle opposite the halfedge
+    double targetAngle() { return this->m_targetAngle; };
 
   public:
 
