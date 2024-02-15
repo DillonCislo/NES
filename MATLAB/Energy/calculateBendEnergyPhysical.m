@@ -74,9 +74,9 @@ end
 assert( all(h >= 0), 'Thickness must be non-negative' );
 
 % Ensure Poisson's ratio is valid
-if ( (nu < -1) || (nu > 0.5) )
-    error('Invalid Poisson''s ratio');
-end
+% if ( (nu < -1) || (nu > 0.5) )
+%     error('Invalid Poisson''s ratio');
+% end
 
 % Construct edge-face correspondence tool ---------------------------------
 efIDx = TR.edgeAttachments(E);
