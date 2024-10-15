@@ -44,9 +44,9 @@ if (numel(tarL) ~= numel(E(:,1)))
 end
 
 % Ensure Poisson's ratio is valid
-if ( (nu < -1) || (nu > 0.5) )
-    error('Invalid Poisson''s ratio');
-end
+% if ( (nu < -1) || (nu > 0.5) )
+%     error('Invalid Poisson''s ratio');
+% end
 
 % Construct face-edge correspondence tool ---------------------------------
 % Given a list of scalar edge quantities, 'EQ', the output of

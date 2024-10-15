@@ -308,7 +308,7 @@ double ElasticProblem::operator()( const VectorXd &x, VectorXd &grad ) {
 
 	// Calculate stretching energy
 	double Estretch = this->m_SO( this->m_P, grad );
-  std::cout << "Estretch = " << Estretch << std::endl;
+  // std::cout << "Estretch = " << Estretch << std::endl;
 
   double Etotal = Estretch;
 
