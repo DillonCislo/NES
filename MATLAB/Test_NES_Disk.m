@@ -1,3 +1,8 @@
+
+addpath([pwd, '/Energy/']);
+addpath([pwd '/Geometry/']);
+
+%%
 clear; close all; clc;
 
 diskTri = diskTriangulation(30);
@@ -27,10 +32,10 @@ lengthErr = abs(movL-tarL) ./ abs(tarL);
 angleErr = abs(movAng - tarAng) ./ abs(tarAng);
 
 fprintf('Max edge length error = %0.5e\n', max(lengthErr));
-fprintf('Median edge length error = %0.5e\n', median(lengthErr));
+fprintf('Median edge length error = %0.5e\n', median(lengthErr, 'omitnan'));
 
 fprintf('Max bending angle error = %0.5e\n', max(angleErr));
-fprintf('Median bending angle error = %0.5e\n', median(angleErr));
+fprintf('Median bending angle error = %0.5e\n', median(angleErr, 'omitnan'));
 
 
 subplot(1,3,1)
@@ -39,6 +44,7 @@ hold on
 scatter3(initV(zeroID, 1), initV(zeroID, 2), initV(zeroID, 3), 'filled', 'r');
 hold off
 axis equal tight
+title('Initial Configuration')
 
 subplot(1,3,2)
 trisurf(triangulation(F, movV));
@@ -46,6 +52,7 @@ hold on
 scatter3(movV(zeroID, 1), movV(zeroID, 2), movV(zeroID, 3), 'filled', 'r');
 hold off
 axis equal tight
+title('Optimized Configuration')
 
 subplot(1,3,3)
 trisurf(triangulation(F,tarV));
@@ -53,4 +60,5 @@ hold on
 scatter3(tarV(zeroID, 1), tarV(zeroID, 2), tarV(zeroID, 3), 'filled', 'r');
 hold off
 axis equal tight
+title('Target Configuration')
 
